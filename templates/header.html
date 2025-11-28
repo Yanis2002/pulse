@@ -358,51 +358,20 @@ document.addEventListener('DOMContentLoaded', function(){
         // Clear container
         container.innerHTML = '';
         
-        // Add loading indicator
-        const loadingDiv = document.createElement('div');
-        loadingDiv.id = 'telegram-widget-loading';
-        loadingDiv.style.cssText = 'text-align: center; padding: 1.5vh; color: var(--text-muted); font-size: 1.3vh;';
-        loadingDiv.textContent = '⏳ Загрузка виджета Telegram...';
-        container.appendChild(loadingDiv);
-        
-        // Create new widget script
+        // Create widget script exactly as in Telegram documentation
         const script = document.createElement('script');
         script.async = true;
         script.src = 'https://telegram.org/js/telegram-widget.js?22';
         script.setAttribute('data-telegram-login', 'Chromosome47bot');
         script.setAttribute('data-size', 'large');
         script.setAttribute('data-radius', '20');
-        script.setAttribute('data-request-access', 'write');
-        
-        // Use redirect URL for better UX - redirects to dashboard after auth
-        // Telegram will add hash with user data to the URL: #id=...&first_name=...&hash=...
-        const authUrl = window.location.origin + '/';
-        script.setAttribute('data-auth-url', authUrl);
-        
-        // Also set callback for handling auth data (works if user stays on page)
         script.setAttribute('data-onauth', 'onTelegramAuth');
-        
-        script.onload = function() {
-            // Remove loading indicator when script loads
-            const loading = document.getElementById('telegram-widget-loading');
-            if (loading) {
-                setTimeout(function() {
-                    loading.remove();
-                }, 500);
-            }
-        };
-        
-        script.onerror = function() {
-            const loading = document.getElementById('telegram-widget-loading');
-            if (loading) {
-                loading.innerHTML = '<div style="color: var(--accent-soft); font-size: 1.3vh;">❌ Ошибка загрузки виджета. Пожалуйста, обновите страницу.</div>';
-            }
-        };
+        script.setAttribute('data-request-access', 'write');
         
         container.appendChild(script);
     }
     
-    // Telegram auth callback (used when data-onauth is set and user stays on page)
+    // Telegram auth callback - simple version as in Telegram docs
     window.onTelegramAuth = function(user) {
         console.log('Telegram auth callback received:', user);
         
@@ -412,16 +381,23 @@ document.addEventListener('DOMContentLoaded', function(){
             return;
         }
         
-        // Use the same processing function
+        // Show success message
+        const playerName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+        const telegramUsername = user.username || '';
+        const telegramId = user.id.toString();
+        
+        alert('Logged in as ' + playerName + ' (' + telegramId + (telegramUsername ? ', @' + telegramUsername : '') + ')');
+        
+        // Save to localStorage
+        localStorage.setItem('pulse_player_name', playerName);
+        localStorage.setItem('pulse_telegram_id', telegramId);
+        if (telegramUsername) {
+            localStorage.setItem('pulse_telegram_username', telegramUsername);
+        }
+        
+        // Process authentication
         processTelegramAuth(user);
     };
-    
-    // Check for Telegram auth redirect on page load
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', handleTelegramAuthRedirect);
-    } else {
-        handleTelegramAuthRedirect();
-    }
     
     if (profileToggle && profileModal) {
         profileToggle.addEventListener('click', function() {

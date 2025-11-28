@@ -10,7 +10,7 @@
 
     <script>
         // Check admin status dynamically based on Telegram username
-        let isAdminValue = {{ 'true' if is_admin else 'false' }};
+        let isAdminValue = false;
         const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
         if (telegramUsername) {
             fetch('/api/telegram/check-admin?username=' + encodeURIComponent(telegramUsername))

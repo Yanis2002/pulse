@@ -429,22 +429,21 @@ def timer_loop():
 @app.route("/")
 def index():
     """Main dashboard page with splash screen."""
-    return render_template("dashboard.html", is_admin=True, admin_token=ADMIN_TOKEN)
+    # Pages are accessible to everyone, admin status is checked dynamically on frontend
+    return render_template("dashboard.html", is_admin=False, admin_token=ADMIN_TOKEN)
 
 
 @app.route("/timer")
 def timer():
     """Timer page."""
-    telegram_username = request.args.get("telegram_username") or request.headers.get("X-Telegram-Username")
-    is_admin = check_is_admin(telegram_username)
-    return render_template("index.html", is_admin=is_admin, admin_token=ADMIN_TOKEN)
+    # Pages are accessible to everyone, admin status is checked dynamically on frontend
+    return render_template("index.html", is_admin=False, admin_token=ADMIN_TOKEN)
 
 
 @app.route("/rating")
 def rating():
-    telegram_username = request.args.get("telegram_username") or request.headers.get("X-Telegram-Username")
-    is_admin = check_is_admin(telegram_username)
-    return render_template("rating.html", is_admin=is_admin, admin_token=ADMIN_TOKEN)
+    # Pages are accessible to everyone, admin status is checked dynamically on frontend
+    return render_template("rating.html", is_admin=False, admin_token=ADMIN_TOKEN)
 
 @app.route("/contacts")
 def contacts():

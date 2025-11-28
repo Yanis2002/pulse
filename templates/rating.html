@@ -1027,8 +1027,30 @@ $(document).ready(function() {
         }
     }
 
-    const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+    // Check admin status dynamically
+    let IS_ADMIN = false;
     const ADMIN_TOKEN = "{{ admin_token }}";
+    
+    // Update admin status based on Telegram username
+    (async function() {
+        const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+        if (telegramUsername) {
+            try {
+                const response = await fetch('/api/telegram/check-admin?username=' + encodeURIComponent(telegramUsername));
+                const data = await response.json();
+                if (data.ok && data.is_admin) {
+                    IS_ADMIN = true;
+                    // Show admin panel if user is admin
+                    const adminPanel = document.getElementById('admin-panel');
+                    if (adminPanel) {
+                        adminPanel.style.display = 'block';
+                    }
+                }
+            } catch (e) {
+                console.error('Error checking admin status:', e);
+            }
+        }
+    })();
     
     // Helper function to add telegram_username to admin requests
     function addAdminData(data) {
