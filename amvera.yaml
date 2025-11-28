@@ -1,8 +1,6 @@
-meta:
-  environment: python
-  toolchain:
-    name: python
-    version: 3.11
+name: pulse
+runtime: python
+version: 3.11
 
 build:
   commands:
