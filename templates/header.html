@@ -355,6 +355,16 @@ document.addEventListener('DOMContentLoaded', function(){
             existingScript.remove();
         }
         
+        // Clear container
+        container.innerHTML = '';
+        
+        // Add loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'telegram-widget-loading';
+        loadingDiv.style.cssText = 'text-align: center; padding: 1.5vh; color: var(--text-muted); font-size: 1.3vh;';
+        loadingDiv.textContent = '⏳ Загрузка виджета Telegram...';
+        container.appendChild(loadingDiv);
+        
         // Create new widget script
         const script = document.createElement('script');
         script.async = true;
@@ -365,14 +375,49 @@ document.addEventListener('DOMContentLoaded', function(){
         script.setAttribute('data-onauth', 'onTelegramAuth');
         script.setAttribute('data-request-access', 'write');
         
+        // Optional: Add redirect URL (uncomment if you want redirect instead of callback)
+        // const currentUrl = window.location.origin + window.location.pathname;
+        // script.setAttribute('data-auth-url', currentUrl);
+        
+        script.onload = function() {
+            // Remove loading indicator when script loads
+            const loading = document.getElementById('telegram-widget-loading');
+            if (loading) {
+                setTimeout(function() {
+                    loading.remove();
+                }, 500);
+            }
+        };
+        
+        script.onerror = function() {
+            const loading = document.getElementById('telegram-widget-loading');
+            if (loading) {
+                loading.innerHTML = '<div style="color: var(--accent-soft); font-size: 1.3vh;">❌ Ошибка загрузки виджета. Пожалуйста, обновите страницу.</div>';
+            }
+        };
+        
         container.appendChild(script);
     }
     
     // Telegram auth callback
     window.onTelegramAuth = function(user) {
+        console.log('Telegram auth callback received:', user);
+        
+        if (!user || !user.id) {
+            console.error('Invalid user data received from Telegram');
+            alert('Ошибка: неверные данные от Telegram. Пожалуйста, попробуйте еще раз.');
+            return;
+        }
+        
         const playerName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
         const telegramUsername = user.username || '';
         const telegramId = user.id.toString();
+        
+        // Show loading state
+        const container = document.getElementById('telegram-widget-container');
+        if (container) {
+            container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--accent-soft); font-size: 1.4vh;">⏳ Обработка регистрации...</div>';
+        }
         
         localStorage.setItem('pulse_player_name', playerName);
         localStorage.setItem('pulse_telegram_id', telegramId);
@@ -396,10 +441,21 @@ document.addEventListener('DOMContentLoaded', function(){
                 registration_source: 'telegram_widget'
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.ok) {
-                console.log('User registered for mailing list');
+                console.log('User registered successfully:', data);
+                
+                // Close profile modal
+                const modal = document.getElementById('profile-modal');
+                const backdrop = document.getElementById('profile-backdrop');
+                if (modal) modal.classList.remove('active');
+                if (backdrop) backdrop.classList.remove('active');
                 
                 // Check if offer needs to be accepted
                 if (!data.offer_accepted) {
@@ -408,6 +464,9 @@ document.addEventListener('DOMContentLoaded', function(){
                     if (offerModal) {
                         offerModal.style.display = 'block';
                         offerModal.classList.add('active');
+                    } else {
+                        // If modal not found, redirect to dashboard
+                        window.location.href = '/';
                     }
                 } else if (!data.game_nickname) {
                     // Show nickname modal (only on dashboard)
@@ -415,25 +474,37 @@ document.addEventListener('DOMContentLoaded', function(){
                     if (nicknameModal) {
                         nicknameModal.classList.add('active');
                     } else {
-                        alert('Регистрация выполнена! Пожалуйста, установите игровой никнейм на главной странице.');
+                        // If not on dashboard, redirect to dashboard
+                        window.location.href = '/';
                     }
                 } else {
-                    alert('Регистрация через Telegram выполнена!\n\nИмя: ' + playerName + '\nTelegram ID: ' + telegramId + (telegramUsername ? '\nUsername: @' + telegramUsername : ''));
+                    // Registration complete - show success message
+                    const successMsg = `✅ Регистрация выполнена!\n\nИмя: ${playerName}\nTelegram ID: ${telegramId}${telegramUsername ? '\nUsername: @' + telegramUsername : ''}`;
+                    alert(successMsg);
+                    
+                    // Reload profile data
+                    loadProfileData();
+                    
+                    // Reload page if on dashboard to update UI
+                    if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
+                        window.location.reload();
+                    }
                 }
             } else {
-                console.error('Error registering user:', data.error);
+                throw new Error(data.error || 'Unknown error');
             }
         })
         .catch(error => {
-            console.error('Error sending user data:', error);
+            console.error('Error during Telegram registration:', error);
+            
+            // Restore widget on error
+            if (container) {
+                container.innerHTML = '';
+                initTelegramWidget();
+            }
+            
+            alert('Ошибка при регистрации: ' + error.message + '\n\nПожалуйста, попробуйте еще раз.');
         });
-        
-        loadProfileData();
-        
-        const modal = document.getElementById('profile-modal');
-        const backdrop = document.getElementById('profile-backdrop');
-        if (modal) modal.classList.remove('active');
-        if (backdrop) backdrop.classList.remove('active');
     };
     
     if (profileToggle && profileModal) {
@@ -469,16 +540,29 @@ document.addEventListener('DOMContentLoaded', function(){
             e.stopPropagation();
             
             const playerName = prompt('Введите ваше имя:');
-            if (!playerName) return;
+            if (!playerName || !playerName.trim()) {
+                return;
+            }
             
             const telegramUsername = prompt('Введите ваш Telegram username (например, @username):');
-            if (!telegramUsername) {
-                alert('Telegram username обязателен');
+            if (!telegramUsername || !telegramUsername.trim()) {
+                alert('Telegram username обязателен для регистрации');
                 return;
             }
             
             const cleanTelegram = telegramUsername.replace('@', '').trim();
-            localStorage.setItem('pulse_player_name', playerName);
+            if (!cleanTelegram) {
+                alert('Некорректный Telegram username');
+                return;
+            }
+            
+            // Show loading state
+            const btn = e.target;
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ Регистрация...';
+            btn.disabled = true;
+            
+            localStorage.setItem('pulse_player_name', playerName.trim());
             localStorage.setItem('pulse_telegram_id', cleanTelegram);
             localStorage.setItem('pulse_telegram_username', cleanTelegram);
             
@@ -498,24 +582,50 @@ document.addEventListener('DOMContentLoaded', function(){
                     registration_source: 'manual'
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.ok) {
                     console.log('User registered for mailing list');
+                    
+                    // Close modal
+                    const modal = document.getElementById('profile-modal');
+                    const backdrop = document.getElementById('profile-backdrop');
+                    if (modal) modal.classList.remove('active');
+                    if (backdrop) backdrop.classList.remove('active');
+                    
+                    // Check if offer needs to be accepted
+                    if (!data.offer_accepted) {
+                        const offerModal = document.getElementById('offer-modal') || document.getElementById('offer-modal-header');
+                        if (offerModal) {
+                            offerModal.style.display = 'block';
+                            offerModal.classList.add('active');
+                        } else {
+                            window.location.href = '/';
+                        }
+                    } else {
+                        alert('✅ Регистрация выполнена!\n\nДля записи на события необходимо принять публичную оферту и установить игровой никнейм.');
+                        loadProfileData();
+                        if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
+                            window.location.reload();
+                        }
+                    }
                 } else {
-                    console.error('Error registering user:', data.error);
+                    throw new Error(data.error || 'Unknown error');
                 }
             })
             .catch(error => {
                 console.error('Error sending user data:', error);
+                alert('Ошибка при регистрации: ' + error.message + '\n\nПожалуйста, попробуйте еще раз.');
+            })
+            .finally(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
             });
-            
-            loadProfileData();
-            alert('Регистрация выполнена!');
-            const modal = document.getElementById('profile-modal');
-            const backdrop = document.getElementById('profile-backdrop');
-            if (modal) modal.classList.remove('active');
-            if (backdrop) backdrop.classList.remove('active');
         }
     });
 });
