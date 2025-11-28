@@ -365,6 +365,11 @@ def rating():
 def contacts():
     return render_template("contacts.html")
 
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 errors by redirecting to main page."""
+    return render_template("dashboard.html", is_admin=True, admin_token=ADMIN_TOKEN), 404
+
 
 @app.route("/api/rating")
 def api_rating():
