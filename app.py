@@ -1444,8 +1444,10 @@ def api_telegram_broadcast():
         with get_db() as db:
             users = db.execute("""
                 SELECT telegram_id FROM telegram_users
-                WHERE is_bot = 0
+                WHERE is_bot = 0 AND telegram_id IS NOT NULL
             """).fetchall()
+        
+        print(f"Broadcasting to {len(users)} users")
         
         success_count = 0
         error_count = 0
@@ -1455,20 +1457,26 @@ def api_telegram_broadcast():
         
         for user in users:
             try:
+                telegram_id = user["telegram_id"]
+                # Skip manual registrations (they start with "manual_")
+                if telegram_id.startswith("manual_"):
+                    continue
+                    
                 response = requests.post(url, json={
-                    "chat_id": int(user["telegram_id"]),
+                    "chat_id": int(telegram_id),
                     "text": message,
                     "parse_mode": "HTML"
                 }, timeout=5)
                 
-                if response.json().get("ok"):
+                result = response.json()
+                if result.get("ok"):
                     success_count += 1
                 else:
                     error_count += 1
-                    errors.append(f"User {user['telegram_id']}: {response.json().get('description', 'unknown error')}")
+                    errors.append(f"User {telegram_id}: {result.get('description', 'unknown error')}")
             except Exception as e:
                 error_count += 1
-                errors.append(f"User {user['telegram_id']}: {str(e)}")
+                errors.append(f"User {user.get('telegram_id', 'unknown')}: {str(e)}")
         
         return jsonify({
             "ok": True,
@@ -1478,6 +1486,9 @@ def api_telegram_broadcast():
             "errors": errors[:10]  # First 10 errors
         })
     except Exception as e:
+        print(f"Error in broadcast: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
