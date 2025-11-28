@@ -3,6 +3,7 @@ Flask-SocketIO==5.3.6
 simple-websocket==1.0.0
 gunicorn==21.2.0
 eventlet==0.33.3
+python-telegram-bot==20.7
 
 
 

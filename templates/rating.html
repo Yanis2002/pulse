@@ -781,12 +781,22 @@
             <!-- Telegram Users List -->
             <div id="telegram-users-panel" style="margin-top: 3vh; padding-top: 3vh; border-top: 1px solid var(--accent-dim);">
                 <div class="admin-title">Пользователи Telegram (для рассылки)</div>
-                <div style="display: flex; gap: 1vw; margin-bottom: 1.5vh;">
-                    <button class="admin-btn" id="load-telegram-users" style="flex: 1;">Загрузить список</button>
-                    <button class="admin-btn" id="export-telegram-users" style="flex: 1; background: rgba(0, 238, 255, 0.2); border: 1px solid rgba(0, 238, 255, 0.5);">Экспорт CSV</button>
+                <div style="display: flex; gap: 1vw; margin-bottom: 1.5vh; flex-wrap: wrap;">
+                    <button class="admin-btn" id="load-telegram-users" style="flex: 1; min-width: 150px;">Загрузить список</button>
+                    <button class="admin-btn" id="export-telegram-users" style="flex: 1; min-width: 150px; background: rgba(0, 238, 255, 0.2); border: 1px solid rgba(0, 238, 255, 0.5);">Экспорт CSV</button>
                 </div>
                 <div id="telegram-users-info" style="color: var(--text-muted); font-size: 1.4vh; margin-bottom: 1vh;"></div>
                 <div id="telegram-users-container" style="max-height: 50vh; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
+                
+                <!-- Broadcast Message Panel -->
+                <div style="margin-top: 3vh; padding-top: 3vh; border-top: 1px solid var(--accent-dim);">
+                    <div class="admin-title">Рассылка сообщений</div>
+                    <textarea id="broadcast-message" class="admin-textarea" placeholder="Введите сообщение для рассылки всем пользователям бота..." style="min-height: 120px; margin-bottom: 1.5vh;"></textarea>
+                    <div style="display: flex; gap: 1vw;">
+                        <button class="admin-btn" id="send-broadcast" style="flex: 1; background: rgba(255, 46, 59, 0.3); border: 1px solid var(--accent-soft);">Отправить рассылку</button>
+                    </div>
+                    <div id="broadcast-result" style="margin-top: 1.5vh; padding: 1vh 1.5vw; border-radius: 8px; display: none;"></div>
+                </div>
             </div>
             
         </div>
@@ -1173,6 +1183,72 @@ $(document).ready(function() {
         // Export Telegram users
         $("#export-telegram-users").on("click", function() {
             window.location.href = `/api/telegram/users/export?token=${ADMIN_TOKEN}`;
+        });
+        
+        // Send broadcast message
+        $("#send-broadcast").on("click", function() {
+            const message = $("#broadcast-message").val().trim();
+            if (!message) {
+                alert('Введите сообщение для рассылки');
+                return;
+            }
+            
+            if (!confirm(`Отправить сообщение всем пользователям бота?\n\nСообщение:\n${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`)) {
+                return;
+            }
+            
+            const btn = $(this);
+            btn.prop('disabled', true).text('Отправка...');
+            const resultDiv = $("#broadcast-result");
+            resultDiv.hide();
+            
+            $.ajax({
+                url: '/api/telegram/broadcast',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    token: ADMIN_TOKEN,
+                    message: message
+                })
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    resultDiv.removeClass('error').addClass('success')
+                        .html(`<strong>Рассылка выполнена!</strong><br>
+                            Отправлено: ${data.sent} пользователей<br>
+                            Ошибок: ${data.failed}<br>
+                            Всего: ${data.total}`)
+                        .css({
+                            'background': 'rgba(0, 255, 0, 0.1)',
+                            'border': '1px solid rgba(0, 255, 0, 0.3)',
+                            'color': '#fff'
+                        })
+                        .show();
+                    $("#broadcast-message").val('');
+                } else {
+                    resultDiv.removeClass('success').addClass('error')
+                        .html(`<strong>Ошибка:</strong> ${data.error || 'неизвестная ошибка'}`)
+                        .css({
+                            'background': 'rgba(255, 46, 59, 0.1)',
+                            'border': '1px solid var(--accent-soft)',
+                            'color': '#fff'
+                        })
+                        .show();
+                }
+            })
+            .fail(function() {
+                resultDiv.removeClass('success').addClass('error')
+                    .html('<strong>Ошибка при отправке рассылки</strong>')
+                    .css({
+                        'background': 'rgba(255, 46, 59, 0.1)',
+                        'border': '1px solid var(--accent-soft)',
+                        'color': '#fff'
+                    })
+                    .show();
+            })
+            .always(function() {
+                btn.prop('disabled', false).text('Отправить рассылку');
+            });
         });
         
         // Finalize tournament

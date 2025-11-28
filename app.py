@@ -11,9 +11,12 @@ import subprocess
 
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
+from telegram import Bot, Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "local-admin")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8574583723:AAHGnyANIA7z_7yPftV1q_HBoYWH4XkMVnI")
 
 BASE_LEVELS = [
     {"sb": 100, "bb": 200, "minutes": 12, "breakMinutes": 0},
