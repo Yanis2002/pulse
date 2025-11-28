@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // Auto-play on all pages except timer (only if music was not disabled by user)
     if (!isTimerPage && !wasDisabled) {
-        // Ensure volume is 50% before playing
+        // Set volume to 50%
         audio.volume = 0.5;
         // Try to play music automatically
         audio.play().then(()=>{
@@ -260,6 +260,7 @@ document.addEventListener('DOMContentLoaded', function(){
     toggle.addEventListener('click', function(e){
         e.preventDefault();
         if(!isPlaying){
+            // Set volume to 50%
             audio.volume = 0.5;
             // Continue from saved time
             audio.currentTime = savedTime || 0;
