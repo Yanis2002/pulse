@@ -984,54 +984,7 @@
     </div>
 
     <!-- Offer Modal -->
-    <div class="event-modal" id="offer-modal" style="z-index: 20000;">
-        <div class="event-modal-content" style="max-width: 90vw; max-height: 90vh; overflow-y: auto;">
-            <div class="event-modal-header">
-                <div class="event-modal-title">ПУБЛИЧНАЯ ОФЕРТА</div>
-                <button class="event-modal-close" id="offer-modal-close" style="display: none;">&times;</button>
-            </div>
-            <div style="padding: 2vh; color: var(--text); line-height: 1.6;">
-                <p style="margin-bottom: 2vh;">Для записи на события необходимо ознакомиться и принять публичную оферту.</p>
-                <div style="margin-bottom: 2vh;">
-                    <iframe src="https://docs.google.com/document/d/1KgkvSh-Vtx4-EyCcaetlIUYkuATmTqS-/preview" 
-                            style="width: 100%; height: 50vh; border: 1px solid var(--accent-dim); border-radius: 8px;"></iframe>
-                </div>
-                <div style="display: flex; gap: 1vw; margin-top: 2vh;">
-                    <button class="event-form-btn event-form-btn-secondary" id="offer-decline" style="flex: 1;">Отклонить</button>
-                    <button class="event-form-btn event-form-btn-primary" id="offer-accept" style="flex: 1;">Принять оферту</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Game Nickname Modal -->
-    <div class="event-modal" id="nickname-modal" style="z-index: 20001;">
-        <div class="event-modal-content" style="max-width: 500px;">
-            <div class="event-modal-header">
-                <div class="event-modal-title">Игровой никнейм</div>
-                <button class="event-modal-close" id="nickname-modal-close">&times;</button>
-            </div>
-            <div style="padding: 2vh;">
-                <p style="margin-bottom: 2vh; color: var(--text-muted); font-size: 1.4vh;">
-                    Введите ваш игровой никнейм для отображения в списке игроков.
-                </p>
-                <div class="event-form-group">
-                    <label class="event-form-label">Игровой никнейм</label>
-                    <input type="text" class="event-form-input" id="game-nickname-input" 
-                           placeholder="3-20 символов: буквы, цифры, _" 
-                           pattern="[a-zA-Zа-яА-ЯёЁ0-9_]{3,20}" 
-                           maxlength="20">
-                    <div style="font-size: 1.2vh; color: var(--text-muted); margin-top: 0.5vh;">
-                        Разрешены буквы (лат/кирилл), цифры и «_», длина 3-20.
-                    </div>
-                </div>
-                <div style="display: flex; gap: 1vw; margin-top: 2vh;">
-                    <button class="event-form-btn event-form-btn-secondary" id="nickname-cancel" style="flex: 1;">Отмена</button>
-                    <button class="event-form-btn event-form-btn-primary" id="nickname-save" style="flex: 1;">Сохранить</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Offer and Nickname modals are in header.html to be available on all pages -->
 
     <!-- Add Event Modal -->
     <div class="event-modal" id="event-modal">

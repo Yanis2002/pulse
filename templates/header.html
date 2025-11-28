@@ -749,7 +749,15 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <script>
 // Offer and Nickname modal handlers (available on all pages)
-$(document).ready(function() {
+// Wait for jQuery to be loaded
+(function() {
+    function initModals() {
+        if (typeof jQuery === 'undefined') {
+            setTimeout(initModals, 100);
+            return;
+        }
+        
+        jQuery(document).ready(function($) {
     // Offer modal handlers
     $('#offer-accept').on('click', function() {
         const telegramId = localStorage.getItem('pulse_telegram_id');
@@ -840,5 +848,8 @@ $(document).ready(function() {
     $('#nickname-cancel, #nickname-modal-close').on('click', function() {
         $('#nickname-modal').removeClass('active').hide();
     });
-});
+        });
+    }
+    initModals();
+})();
 </script>
