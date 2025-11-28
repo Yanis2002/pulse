@@ -11,7 +11,14 @@ import subprocess
 
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
-import requests
+
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    print("WARNING: requests module not found. Telegram features will not work.")
+    REQUESTS_AVAILABLE = False
+    requests = None
 
 
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "local-admin")
@@ -1414,6 +1421,10 @@ def api_setup_webhook():
         if not webhook_url:
             print("webhook_url is empty")
             return jsonify({"ok": False, "error": "webhook_url required"}), 400
+        
+        if not REQUESTS_AVAILABLE:
+            print("requests module not available")
+            return jsonify({"ok": False, "error": "requests module not available. Please install it: pip install requests"}), 500
         
         # Telegram API requires GET request with URL parameter
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook"
