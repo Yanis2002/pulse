@@ -55,7 +55,13 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "pulse-timer-secret")
 # Use eventlet async_mode for production with gunicorn
 socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
 
-DB_PATH = "pulse_tournaments.db"
+# Use persistent storage path if available, otherwise use local path
+# For production: use /data directory (mounted persistent volume)
+# For local: use current directory
+DB_DIR = os.environ.get("DB_DIR", os.path.dirname(os.path.abspath(__file__)))
+if not os.path.exists(DB_DIR):
+    os.makedirs(DB_DIR, exist_ok=True)
+DB_PATH = os.path.join(DB_DIR, "pulse_tournaments.db")
 
 
 @contextmanager
