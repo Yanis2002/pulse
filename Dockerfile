@@ -22,7 +22,7 @@ EXPOSE 8000
 ENV PORT=8000
 ENV DB_DIR=/data
 
-# Run gunicorn with eventlet (Railway sets PORT automatically)
-# Using shell form to allow $PORT variable expansion
-CMD gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-8000} --timeout 120 --access-logfile - --error-logfile - --log-level debug wsgi:application
+# Run gunicorn with eventlet (Railway sets PORT automatically via environment)
+# Use exec form with sh -c to properly expand PORT variable
+CMD ["sh", "-c", "gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-8000} --timeout 120 --access-logfile - --error-logfile - --log-level debug wsgi:application"]
 
