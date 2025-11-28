@@ -441,8 +441,10 @@ document.addEventListener('DOMContentLoaded', function(){
             profileModal.classList.add('active');
             profileBackdrop.classList.add('active');
             loadProfileData();
-            // Initialize Telegram widget when modal opens
-            setTimeout(initTelegramWidget, 100);
+            // Initialize Telegram widget when modal opens (with delay to ensure DOM is ready)
+            setTimeout(function() {
+                initTelegramWidget();
+            }, 200);
         });
         
         if (profileClose) {
@@ -539,7 +541,15 @@ document.addEventListener('DOMContentLoaded', function(){
                 </div>
             </div>
             <div class="profile-actions">
-                <div id="telegram-widget-container" style="margin-bottom: 1.5vh;"></div>
+                <div style="margin-bottom: 1.5vh; padding: 1.5vh; background: rgba(0, 238, 255, 0.05); border-radius: 12px; border: 1px solid rgba(0, 238, 255, 0.2);">
+                    <div style="font-size: 1.4vh; color: var(--text-muted); margin-bottom: 1vh; text-align: center;">
+                        🔐 Для записи на события необходимо авторизоваться через Telegram
+                    </div>
+                    <div id="telegram-widget-container"></div>
+                </div>
+                <div style="text-align: center; margin: 1.5vh 0; color: var(--text-muted); font-size: 1.2vh;">
+                    или
+                </div>
                 <button class="profile-action-btn" id="manual-register-btn">
                     ✏️ Регистрация вручную
                 </button>
