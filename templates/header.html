@@ -354,6 +354,8 @@ document.addEventListener('DOMContentLoaded', function(){
                         localStorage.setItem('pulse_player_name', fullName || 'Не зарегистрирован');
                         if (data.username) {
                             localStorage.setItem('pulse_telegram_username', data.username);
+                            // Check admin status after loading username
+                            checkAdminStatus(data.username);
                         }
                         
                         // Update display
@@ -558,11 +560,57 @@ document.addEventListener('DOMContentLoaded', function(){
         processTelegramAuth(user);
     };
     
+    // Check admin status and update UI
+    function checkAdminStatus(telegramUsername) {
+        if (!telegramUsername) return;
+        
+        fetch('/api/telegram/check-admin?username=' + encodeURIComponent(telegramUsername))
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok && data.is_admin) {
+                    // Update IS_ADMIN on all pages
+                    if (typeof IS_ADMIN !== 'undefined') {
+                        IS_ADMIN = true;
+                    }
+                    if (typeof window.PULSE_TIMER_IS_ADMIN !== 'undefined') {
+                        window.PULSE_TIMER_IS_ADMIN = true;
+                    }
+                    
+                    // Show admin panels
+                    const adminPanels = document.querySelectorAll('#admin-panel');
+                    adminPanels.forEach(panel => {
+                        if (panel) panel.style.display = 'block';
+                    });
+                    
+                    const toggleAdminBtns = document.querySelectorAll('#toggle-admin');
+                    toggleAdminBtns.forEach(btn => {
+                        if (btn) btn.style.display = 'block';
+                    });
+                    
+                    // Show add event buttons
+                    const addEventBtns = document.querySelectorAll('.add-event-btn');
+                    addEventBtns.forEach(btn => {
+                        if (btn) btn.style.display = 'block';
+                    });
+                    
+                    console.log('Admin status updated for:', telegramUsername);
+                }
+            })
+            .catch(error => {
+                console.error('Error checking admin status:', error);
+            });
+    }
+    
     if (profileToggle && profileModal) {
         profileToggle.addEventListener('click', function() {
             profileModal.classList.add('active');
             profileBackdrop.classList.add('active');
             loadProfileData();
+            // Check admin status when opening profile
+            const telegramUsername = localStorage.getItem('pulse_telegram_username');
+            if (telegramUsername) {
+                checkAdminStatus(telegramUsername);
+            }
             // Initialize Telegram widget when modal opens (with delay to ensure DOM is ready)
             setTimeout(function() {
                 initTelegramWidget();

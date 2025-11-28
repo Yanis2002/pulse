@@ -439,6 +439,14 @@ def timer_loop():
         emit_state(payload)
 
 
+def check_is_admin(telegram_username=None):
+    """Check if user is admin based on Telegram username."""
+    if not telegram_username:
+        return False
+    # Remove @ if present and convert to lowercase
+    username = telegram_username.replace("@", "").strip().lower()
+    return username in ADMIN_TELEGRAM_USERNAMES
+
 @app.route("/")
 def index():
     """Main dashboard page with splash screen."""
