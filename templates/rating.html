@@ -1029,6 +1029,16 @@ $(document).ready(function() {
 
     const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
     const ADMIN_TOKEN = "{{ admin_token }}";
+    
+    // Helper function to add telegram_username to admin requests
+    function addAdminData(data) {
+        const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+        if (typeof data === 'object' && data !== null) {
+            data.telegram_username = telegramUsername;
+        }
+        return data;
+    }
+    
     let players = [];
     function renderRating() {
         const tbody = document.getElementById("rating-body");
