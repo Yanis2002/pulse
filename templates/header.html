@@ -400,6 +400,27 @@ document.addEventListener('DOMContentLoaded', function(){
         .then(data => {
             if (data.ok) {
                 console.log('User registered for mailing list');
+                
+                // Check if offer needs to be accepted
+                if (!data.offer_accepted) {
+                    // Show offer modal - redirect to dashboard where offer modal exists
+                    const offerModal = document.getElementById('offer-modal');
+                    if (offerModal) {
+                        offerModal.classList.add('active');
+                    } else {
+                        // If not on dashboard, show alert and redirect
+                        alert('Для использования сервиса необходимо принять публичную оферту. Вы будете перенаправлены на главную страницу.');
+                        window.location.href = '/';
+                    }
+                } else if (!data.game_nickname) {
+                    // Show nickname modal
+                    const nicknameModal = document.getElementById('nickname-modal');
+                    if (nicknameModal) {
+                        nicknameModal.classList.add('active');
+                    }
+                } else {
+                    alert('Регистрация через Telegram выполнена!\n\nИмя: ' + playerName + '\nTelegram ID: ' + telegramId + (telegramUsername ? '\nUsername: @' + telegramUsername : ''));
+                }
             } else {
                 console.error('Error registering user:', data.error);
             }
@@ -409,7 +430,6 @@ document.addEventListener('DOMContentLoaded', function(){
         });
         
         loadProfileData();
-        alert('Регистрация через Telegram выполнена!\n\nИмя: ' + playerName + '\nTelegram ID: ' + telegramId + (telegramUsername ? '\nUsername: @' + telegramUsername : ''));
         
         const modal = document.getElementById('profile-modal');
         const backdrop = document.getElementById('profile-backdrop');

@@ -913,7 +913,9 @@ def api_get_event_players(event_id):
                     "date": event["date"],
                     "time": event["time"],
                     "event_type": event["event_type"],
-                    "description": event["description"]
+                    "description": event["description"],
+                    "max_places": event.get("max_places", 20),
+                    "price": event.get("price", 1000)
                 },
                 "players": players
             })
