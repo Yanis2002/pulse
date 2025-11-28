@@ -844,8 +844,7 @@
     </div>
 
     <div class="container" id="main-content" style="display: none;">
-        {% if is_admin %}
-        <div class="admin-panel" id="admin-panel">
+        <div class="admin-panel" id="admin-panel" style="display: none;">
             <div class="admin-title">Управление участниками</div>
             
             <!-- Date selector for poker tournament -->
@@ -892,8 +891,7 @@
             </div>
             
         </div>
-        <button class="nav-btn" id="toggle-admin" style="align-self: flex-start;">Показать панель управления</button>
-        {% endif %}
+        <button class="nav-btn" id="toggle-admin" style="align-self: flex-start; display: none;">Показать панель управления</button>
 
         <!-- Tabs -->
         <div class="tabs-container">
