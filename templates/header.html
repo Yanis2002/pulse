@@ -328,6 +328,17 @@ document.addEventListener('DOMContentLoaded', function(){
         }
     });
     
+    // Check admin status on page load
+    (function() {
+        const telegramUsername = localStorage.getItem('pulse_telegram_username');
+        if (telegramUsername) {
+            // Wait a bit for DOM to be ready
+            setTimeout(function() {
+                checkAdminStatus(telegramUsername);
+            }, 500);
+        }
+    })();
+    
     // Profile modal
     const profileToggle = document.getElementById('profile-toggle');
     const profileModal = document.getElementById('profile-modal');
