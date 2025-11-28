@@ -1,0 +1,1622 @@
+{% include 'header.html' %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>PULSE | CLUB</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        :root {
+            --bg-top: #050509;
+            --bg-bottom: #020514;
+            --accent: #ff2e3b;
+            --accent-soft: #ff4b5c;
+            --accent-dim: rgba(255, 46, 59, 0.35);
+            --text: #ffffff;
+            --text-muted: #9ba1b6;
+            --glow-red: 0 0 60px rgba(255, 46, 59, 0.8);
+            --glow-strong: 0 0 100px rgba(255, 46, 59, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text);
+            background: radial-gradient(circle at top, #1a1014 0, #050509 35%, #020514 100%);
+        }
+
+        /* Splash Screen */
+        .splash-screen {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, #050509 0%, #020514 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 0.8s ease-out;
+        }
+
+        .splash-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .logo-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4vh;
+        }
+
+        .logo-splash {
+            width: 25vh;
+            height: 25vh;
+            object-fit: contain;
+            filter: drop-shadow(var(--glow-strong));
+            animation: logoPulse 2s ease-in-out infinite;
+            transform-origin: center;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 60px rgba(255, 46, 59, 0.8));
+            }
+            50% {
+                transform: scale(1.1);
+                filter: drop-shadow(0 0 100px rgba(255, 46, 59, 1));
+            }
+        }
+
+        .progress-bar-container {
+            width: 40vw;
+            max-width: 500px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 4vh;
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.3);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff2e3b 0%, #ff4b5c 50%, #ff6b7a 100%);
+            border-radius: 10px;
+            width: 0%;
+            animation: progressFill 2.5s ease-out forwards;
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.8), 0 0 40px rgba(255, 46, 59, 0.5);
+        }
+
+        @keyframes progressFill {
+            0% {
+                width: 0%;
+            }
+            100% {
+                width: 100%;
+            }
+        }
+
+        .particles {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--accent-soft);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-soft);
+            animation: particleFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes particleFloat {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+                opacity: 0.6;
+            }
+            50% {
+                transform: translate(var(--tx, 50px), var(--ty, -50px)) scale(1.5);
+                opacity: 1;
+            }
+        }
+
+        .splash-title {
+            font-size: 6vh;
+            font-weight: 900;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--accent-soft);
+            text-shadow: var(--glow-red);
+            animation: titleGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% {
+                text-shadow: 0 0 40px rgba(255, 46, 59, 0.8);
+            }
+            50% {
+                text-shadow: 0 0 80px rgba(255, 46, 59, 1), 0 0 120px rgba(255, 46, 59, 0.6);
+            }
+        }
+
+        /* Main Content */
+        .main-content {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            padding: 3vh 4vw;
+            flex-direction: column;
+            gap: 3vh;
+            overflow-y: auto;
+        }
+
+        .main-content.visible {
+            display: flex;
+        }
+
+        /* Week Calendar */
+        .week-calendar {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 3vh;
+            gap: 2vw;
+        }
+
+        .calendar-title {
+            font-size: 4vh;
+            font-weight: 900;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent-soft);
+            text-shadow: 0 0 20px rgba(255, 46, 59, 0.6);
+        }
+
+        .week-nav-btn {
+            padding: 1vh 1.5vw;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(8, 8, 16, 0.9);
+            color: var(--text);
+            font-size: 3vh;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .week-nav-btn:hover {
+            border-color: var(--accent-soft);
+            background: rgba(255, 46, 59, 0.15);
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.4);
+        }
+
+        .week-range {
+            font-size: 2vh;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+        }
+
+        .main-tabs{
+            display:flex;
+            gap:1vw;
+            margin-bottom:2vh;
+        }
+        .main-tab-btn{
+            padding:1vh 2.4vw;
+            border-radius:999px;
+            border:1px solid rgba(255,255,255,0.18);
+            background:rgba(10,10,20,0.7);
+            color:var(--text-muted);
+            letter-spacing:.12em;
+            text-transform:uppercase;
+            font-size:1.5vh;
+            font-weight:700;
+            cursor:pointer;
+            transition:all .2s;
+        }
+        .main-tab-btn.active{
+            color:#fff;
+            border-color:rgba(0,238,255,.9);
+            box-shadow:0 0 18px rgba(0,238,255,.55);
+        }
+        .tab-panel{display:none;}
+        .tab-panel.active{display:block;}
+
+        .days-container {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2vw;
+            align-items: stretch;
+        }
+
+        .day-card {
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.15) 0%, rgba(204, 26, 37, 0.1) 100%);
+            border-radius: 20px;
+            border: 1px solid var(--accent-dim);
+            padding: 2vh 1.5vw;
+            min-height: 32vh;
+            max-height: 32vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s;
+        }
+
+        .day-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 40px rgba(255, 46, 59, 0.4);
+            border-color: var(--accent-soft);
+        }
+
+        .day-card.today {
+            border: 2px solid var(--accent-soft);
+            box-shadow: 0 0 50px rgba(255, 46, 59, 0.6);
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.25) 0%, rgba(204, 26, 37, 0.2) 100%);
+        }
+
+        .day-card:hover{
+            transform: translateY(-4px);
+            box-shadow:0 0 22px rgba(0,238,255,.35);
+            border-color:rgba(0,238,255,.5);
+        }
+
+        .day-card.past {
+            opacity: 0.6;
+            filter: grayscale(0.15);
+        }
+
+        .day-card.past .add-event-btn {
+            display: none;
+        }
+
+        .day-card.past .register-btn {
+            display: none;
+        }
+        
+        .day-card.past .event-item {
+            opacity: 0.5;
+        }
+
+        .day-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5vh;
+            margin-bottom: 2vh;
+            padding-bottom: 1.5vh;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .day-name {
+            font-size: 2.2vh;
+            font-weight: 800;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent-soft);
+        }
+
+        .day-date {
+            font-size: 1.6vh;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .day-events {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1vh;
+            min-height: 15vh;
+            overflow-y: auto;
+            padding-right: 0.5vw;
+        }
+        .day-events::-webkit-scrollbar{
+            width:4px;
+        }
+        .day-events::-webkit-scrollbar-thumb{
+            background:rgba(0,238,255,0.4);
+            border-radius:999px;
+        }
+
+        .event-item {
+            background: rgba(8, 8, 16, 0.6);
+            border-radius: 12px;
+            padding: 1.2vh 1vw;
+            font-size: 1.6vh;
+            color: var(--text);
+            border-left: 3px solid var(--accent-soft);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 0 0 rgba(0, 242, 255, 0);
+        }
+
+        .event-item:hover {
+            background: rgba(10, 25, 40, 0.9);
+            transform: translateX(5px);
+            box-shadow: 0 0 22px rgba(0, 238, 255, 0.45);
+            border-color: rgba(0, 238, 255, 0.8);
+        }
+
+        .event-time {
+            font-weight: 700;
+            color: var(--accent-soft);
+            margin-bottom: 0.3vh;
+        }
+
+        .event-text {
+            color: var(--text);
+        }
+
+        .add-event-btn {
+            margin-top: auto;
+            padding: 1vh 1.5vw;
+            border-radius: 12px;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            background: rgba(255, 46, 59, 0.1);
+            color: var(--text-muted);
+            font-size: 1.5vh;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .add-event-btn:hover {
+            border-color: var(--accent-soft);
+            background: rgba(255, 46, 59, 0.2);
+            color: var(--text);
+        }
+
+        .event-type {
+            display: inline-block;
+            padding: 0.3vh 0.8vw;
+            border-radius: 8px;
+            font-size: 1.3vh;
+            font-weight: 700;
+            margin-bottom: 0.5vh;
+        }
+
+        .event-type.mafia {
+            background: rgba(139, 69, 19, 0.3);
+            color: #d4a574;
+        }
+
+        .event-type.poker {
+            background: rgba(255, 46, 59, 0.3);
+            color: #ff6b7a;
+        }
+
+        .event-type.free {
+            background: rgba(46, 125, 255, 0.3);
+            color: #6bb6ff;
+        }
+
+        .event-registered {
+            margin-top: 0.8vh;
+            font-size: 1.3vh;
+            color: var(--text-muted);
+        }
+
+        .event-registered-count {
+            color: var(--accent-soft);
+            font-weight: 700;
+        }
+
+        .register-btn {
+            margin-top: 0.8vh;
+            padding: 0.8vh 1.2vw;
+            border-radius: 8px;
+            border: 1px solid var(--accent-soft);
+            background: rgba(255, 46, 59, 0.2);
+            color: var(--accent-soft);
+            font-size: 1.4vh;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            width: 100%;
+        }
+
+        .register-btn:hover {
+            background: rgba(255, 46, 59, 0.3);
+        }
+
+        .register-btn.registered {
+            background: rgba(76, 175, 80, 0.2);
+            border-color: #4caf50;
+            color: #4caf50;
+        }
+
+        .event-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .event-modal.active {
+            display: flex;
+        }
+
+        .event-modal-content {
+            background: linear-gradient(135deg, rgba(8, 8, 16, 0.98) 0%, rgba(15, 15, 25, 0.98) 100%);
+            border-radius: 20px;
+            border: 1px solid var(--accent-dim);
+            padding: 3vh 3vw;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 60px rgba(255, 46, 59, 0.4);
+        }
+
+        .event-modal-title {
+            font-size: 2.5vh;
+            font-weight: 800;
+            color: var(--accent-soft);
+            margin-bottom: 2vh;
+            text-align: center;
+        }
+
+        .event-form-group {
+            margin-bottom: 2vh;
+        }
+
+        .event-form-label {
+            display: block;
+            font-size: 1.6vh;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.8vh;
+        }
+
+        .event-form-input,
+        .event-form-select {
+            width: 100%;
+            padding: 1.2vh 1.5vw;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(15, 15, 25, 0.8);
+            color: var(--text);
+            font-size: 1.6vh;
+            outline: none;
+        }
+
+        .event-form-input:focus,
+        .event-form-select:focus {
+            border-color: var(--accent-soft);
+            box-shadow: 0 0 15px rgba(255, 46, 59, 0.3);
+        }
+
+        .event-form-buttons {
+            display: flex;
+            gap: 1vw;
+            margin-top: 3vh;
+        }
+
+        .event-form-btn {
+            flex: 1;
+            padding: 1.2vh 2vw;
+            border-radius: 12px;
+            border: none;
+            font-size: 1.6vh;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .event-form-btn-primary {
+            background: var(--accent-soft);
+            color: #fff;
+        }
+
+        .event-form-btn-primary:hover {
+            background: var(--accent);
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.6);
+        }
+
+        .event-form-btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+        }
+
+        .event-form-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .auth-cards{
+            display:flex;
+            gap:2vw;
+            flex-wrap:wrap;
+        }
+        .auth-card{
+            flex:1;
+            min-width:280px;
+            background:rgba(8,8,16,0.8);
+            border-radius:20px;
+            border:1px solid rgba(255,255,255,0.15);
+            padding:2vh 2vw;
+            box-shadow:0 0 30px rgba(0,0,0,0.4);
+        }
+        .auth-title{
+            font-size:2.4vh;
+            font-weight:800;
+            text-transform:uppercase;
+            letter-spacing:.14em;
+            color:var(--accent-soft);
+            margin-bottom:1.5vh;
+        }
+        .auth-field{
+            display:flex;
+            flex-direction:column;
+            gap:.6vh;
+            margin-bottom:1.5vh;
+        }
+        .auth-field label{
+            font-size:1.4vh;
+            letter-spacing:.08em;
+            color:var(--text-muted);
+        }
+        .auth-field input{
+            border-radius:12px;
+            border:1px solid rgba(255,255,255,0.18);
+            background:rgba(12,12,24,0.9);
+            padding:1vh 1vw;
+            color:var(--text);
+            font-size:1.6vh;
+        }
+        .auth-btn{
+            width:100%;
+            border:none;
+            border-radius:12px;
+            padding:1.2vh;
+            font-size:1.7vh;
+            font-weight:700;
+            text-transform:uppercase;
+            letter-spacing:.12em;
+            background:rgba(255,255,255,0.1);
+            color:var(--text);
+            cursor:pointer;
+            transition:all .2s;
+        }
+        .auth-btn:hover{background:rgba(255,255,255,0.2);}
+        .auth-btn-primary{
+            background:var(--accent-soft);
+            color:#fff;
+        }
+        .auth-btn-primary:hover{
+            background:var(--accent);
+            box-shadow:0 0 18px rgba(255,46,59,0.6);
+        }
+
+        .empty-day {
+            color: var(--text-muted);
+            font-size: 1.5vh;
+            text-align: center;
+            padding: 2vh 0;
+            font-style: italic;
+        }
+
+        @media (max-width: 1200px) {
+            .days-container {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (max-width: 800px) {
+            .days-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 500px) {
+            .days-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+
+        .nav-buttons {
+            display: flex;
+            gap: 1.5vw;
+            flex-wrap: wrap;
+        }
+
+        .nav-btn {
+            padding: 1.2vh 2.5vw;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(8, 8, 16, 0.9);
+            color: var(--text);
+            font-size: 1.8vh;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover {
+            border-color: var(--accent-soft);
+            background: rgba(255, 46, 59, 0.15);
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.4);
+        }
+
+        /* Tournament Table */
+        .table-container {
+            flex: 1;
+            background: rgba(8, 8, 16, 0.6);
+            border-radius: 24px;
+            border: 1px solid var(--accent-dim);
+            padding: 2vh 2vw;
+            overflow: auto;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
+        }
+
+        .table-title {
+            font-size: 4vh;
+            font-weight: 900;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent-soft);
+            margin-bottom: 2vh;
+            text-shadow: 0 0 20px rgba(255, 46, 59, 0.6);
+        }
+
+        .tournament-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(15, 15, 25, 0.8);
+        }
+
+        .tournament-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.3) 0%, rgba(204, 26, 37, 0.25) 100%);
+        }
+
+        .tournament-table th {
+            padding: 1.5vh 1.2vw;
+            text-align: center;
+            font-weight: 800;
+            font-size: 1.8vh;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 80px;
+        }
+
+        .tournament-table th:first-child {
+            position: sticky;
+            left: 0;
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.4) 0%, rgba(204, 26, 37, 0.35) 100%);
+            z-index: 11;
+        }
+
+        .tournament-table th:nth-child(2) {
+            position: sticky;
+            left: 80px;
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.4) 0%, rgba(204, 26, 37, 0.35) 100%);
+            z-index: 11;
+            text-align: left;
+            min-width: 200px;
+        }
+
+        .tournament-table tbody tr {
+            background: rgba(8, 8, 16, 0.6);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+
+        .tournament-table tbody tr:hover {
+            background: rgba(255, 46, 59, 0.1);
+        }
+
+        .tournament-table td {
+            padding: 1.2vh 1vw;
+            text-align: center;
+            font-size: 1.8vh;
+            font-weight: 600;
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .tournament-table td:first-child {
+            position: sticky;
+            left: 0;
+            background: rgba(8, 8, 16, 0.95);
+            z-index: 5;
+            font-weight: 800;
+            color: var(--text-muted);
+        }
+
+        .tournament-table td:nth-child(2) {
+            position: sticky;
+            left: 80px;
+            background: rgba(8, 8, 16, 0.95);
+            z-index: 5;
+            text-align: left;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .tournament-table td.total {
+            font-weight: 900;
+            color: var(--accent-soft);
+            text-shadow: 0 0 10px rgba(255, 75, 92, 0.5);
+        }
+
+        .tournament-table td.bounty {
+            font-weight: 800;
+            color: #ffd700;
+        }
+
+        .editable-cell {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .editable-cell:hover {
+            background: rgba(255, 46, 59, 0.2) !important;
+        }
+
+        .editable-cell.editing {
+            background: rgba(255, 46, 59, 0.3) !important;
+        }
+
+        .cell-input {
+            width: 100%;
+            background: transparent;
+            border: 2px solid var(--accent-soft);
+            color: var(--text);
+            font-size: 1.8vh;
+            font-weight: 600;
+            text-align: center;
+            padding: 0.5vh 0.5vw;
+            outline: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 5vh;
+            color: var(--text-muted);
+            font-size: 2.2vh;
+        }
+    </style>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div class="splash-screen" id="splash">
+        <div class="particles" id="particles"></div>
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='pulse_logo_transparent.png') }}" class="logo-splash" alt="PULSE">
+            <div class="splash-title">PULSE | CLUB</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" id="main-content">
+        <div class="main-tabs">
+            <button class="main-tab-btn active" data-tab="schedule">Расписание</button>
+            <button class="main-tab-btn" data-tab="auth">Вход / Регистрация</button>
+        </div>
+
+        <div class="tab-panel active" id="tab-schedule">
+        <div class="week-calendar">
+            <div class="calendar-header">
+                <h2 class="calendar-title">РАСПИСАНИЕ НЕДЕЛИ</h2>
+                <button class="week-nav-btn" id="prev-week">‹</button>
+                <span class="week-range" id="week-range"></span>
+                <button class="week-nav-btn" id="next-week">›</button>
+            </div>
+            <div class="days-container" id="days-container">
+                <!-- Days will be generated by JS -->
+            </div>
+        </div>
+        </div>
+
+        <div class="tab-panel" id="tab-auth">
+            <div class="auth-cards">
+                <div class="auth-card">
+                    <div class="auth-title">Вход</div>
+                    <div class="auth-field">
+                        <label>Email / Telegram</label>
+                        <input type="text" id="login-username" placeholder="@nickname или email">
+                    </div>
+                    <div class="auth-field">
+                        <label>Пароль</label>
+                        <input type="password" id="login-password" placeholder="••••••••">
+                    </div>
+                    <button class="auth-btn" id="login-btn">Войти</button>
+                </div>
+                <div class="auth-card">
+                    <div class="auth-title">Регистрация</div>
+                    <div class="auth-field">
+                        <label>Имя и фамилия</label>
+                        <input type="text" id="reg-name" placeholder="Имя">
+                    </div>
+                    <div class="auth-field">
+                        <label>Telegram</label>
+                        <input type="text" id="reg-telegram" placeholder="@nickname">
+                    </div>
+                    <div class="auth-field">
+                        <label>Email</label>
+                        <input type="email" id="reg-email" placeholder="you@example.com">
+                    </div>
+                    <button class="auth-btn auth-btn-primary" id="register-btn">Зарегистрироваться</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Modal -->
+    <!-- Event Details Modal -->
+    <div class="event-modal" id="event-details-modal">
+        <div class="event-modal-content">
+            <div class="event-modal-header">
+                <div class="event-modal-title" id="event-details-title">Событие</div>
+                <button class="event-modal-close" id="event-details-close">&times;</button>
+            </div>
+            <div id="event-details-content">
+                <div class="event-details-info">
+                    <div class="event-details-time" id="event-details-time"></div>
+                    <div class="event-details-type" id="event-details-type"></div>
+                    <div class="event-details-description" id="event-details-description"></div>
+                </div>
+                <div class="event-details-players">
+                    <div class="event-details-players-title">Записанные игроки:</div>
+                    <div class="event-details-players-list" id="event-details-players-list"></div>
+                </div>
+                <div class="event-details-actions" id="event-details-actions"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Event Modal -->
+    <div class="event-modal" id="event-modal">
+        <div class="event-modal-content">
+            <div class="event-modal-title">Добавить событие</div>
+            <div class="event-form-group">
+                <label class="event-form-label">Время</label>
+                <input type="time" class="event-form-input" id="event-time" required>
+            </div>
+            <div class="event-form-group">
+                <label class="event-form-label">Тип события</label>
+                <select class="event-form-select" id="event-type" required>
+                    <option value="">Выберите тип</option>
+                    <option value="Мафия">Мафия</option>
+                    <option value="Покер">Покер</option>
+                    <option value="Свободная игра">Свободная игра</option>
+                </select>
+            </div>
+            <div class="event-form-group">
+                <label class="event-form-label">Описание (опционально, для "Свободная игра")</label>
+                <input type="text" class="event-form-input" id="event-description" placeholder="Например: Настольные игры">
+            </div>
+            <div class="event-form-buttons">
+                <button class="event-form-btn event-form-btn-secondary" id="event-modal-cancel">Отмена</button>
+                <button class="event-form-btn event-form-btn-primary" id="event-modal-save">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+        const ADMIN_TOKEN = "{{ admin_token }}";
+        
+        let currentWeekStart = new Date();
+        currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() + 1); // Monday
+        currentWeekStart.setHours(0, 0, 0, 0);
+        
+        const initialWeekStart = new Date('2025-11-21T00:00:00');
+        const finalWeekEnd = new Date('2025-12-31T00:00:00');
+
+        // Splash screen animation
+        function createParticles() {
+            const container = document.getElementById("particles");
+            const count = 30;
+            
+            for (let i = 0; i < count; i++) {
+                const particle = document.createElement("div");
+                particle.className = "particle";
+                const angle = (Math.PI * 2 * i) / count;
+                const radius = 200 + Math.random() * 100;
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+                particle.style.left = `calc(50% + ${x}px)`;
+                particle.style.top = `calc(50% + ${y}px)`;
+                particle.style.setProperty("--tx", `${Math.cos(angle) * 30}px`);
+                particle.style.setProperty("--ty", `${Math.sin(angle) * 30}px`);
+                particle.style.animationDelay = `${Math.random() * 2}s`;
+                container.appendChild(particle);
+            }
+        }
+
+        // Hide splash after animation - show only on hard reload, not on navigation
+        const mainContent = document.getElementById("main-content");
+        const splashEl = document.getElementById("splash");
+        
+        if (!splashEl) {
+            // No splash element, show content immediately
+            if (mainContent) {
+                mainContent.style.display = 'flex';
+            }
+        } else {
+            // Check if this is a hard reload (F5, Ctrl+R) or navigation
+            const navEntry = performance.getEntriesByType('navigation')[0];
+            const isHardReload = navEntry && navEntry.type === 'reload';
+            
+            // Show splash only on hard reload, not on navigation between pages
+            if (isHardReload) {
+                // Hard reload - show splash
+                if (mainContent) {
+                    mainContent.style.display = 'none';
+                }
+                setTimeout(function(){
+                    splashEl.classList.add('hidden');
+                    if (mainContent) {
+                        mainContent.style.display = 'flex';
+                    }
+                }, 2800);
+            } else {
+                // Navigation from another page - hide splash immediately
+                splashEl.classList.add('hidden');
+                if (mainContent) {
+                    mainContent.style.display = 'flex';
+                }
+            }
+        }
+
+        createParticles();
+
+        // Week Calendar Functions
+        const dayNames = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+        const dayNamesShort = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+        const monthNames = ['Января', 'Февраля', 'Марта', 'Апреля', 'Мая', 'Июня', 
+                           'Июля', 'Августа', 'Сентября', 'Октября', 'Ноября', 'Декабря'];
+
+        let weekEvents = {}; // { 'YYYY-MM-DD': [{time: '19:00', text: 'Турнир'}] }
+
+        function formatDate(date) {
+            return date.getFullYear() + '-' + 
+                   String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(date.getDate()).padStart(2, '0');
+        }
+
+        function formatDateDisplay(date) {
+            return date.getDate() + ' ' + monthNames[date.getMonth()];
+        }
+
+        function updateWeekRange() {
+            const weekEnd = new Date(currentWeekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            const range = formatDateDisplay(currentWeekStart) + ' - ' + formatDateDisplay(weekEnd);
+            $('#week-range').text(range);
+        }
+
+        function renderWeek() {
+            const container = $('#days-container');
+            container.empty();
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            for (let i = 0; i < 7; i++) {
+                const dayDate = new Date(currentWeekStart);
+                dayDate.setDate(dayDate.getDate() + i);
+                const dateKey = formatDate(dayDate);
+                const isToday = dayDate.getTime() === today.getTime();
+                
+                const dayCard = $('<div>').addClass('day-card');
+                if (isToday) dayCard.addClass('today');
+                
+                // Mark past days
+                if (dayDate.getTime() < today.getTime()) {
+                    dayCard.addClass('past');
+                }
+                
+                const dayHeader = $('<div>').addClass('day-header');
+                dayHeader.append($('<div>').addClass('day-name').text(dayNames[i]));
+                dayHeader.append($('<div>').addClass('day-date').text(formatDateDisplay(dayDate)));
+                dayCard.append(dayHeader);
+                
+                const eventsContainer = $('<div>').addClass('day-events');
+                const events = weekEvents[dateKey] || [];
+                
+                if (events.length === 0) {
+                    eventsContainer.append($('<div>').addClass('empty-day').text('Нет событий'));
+                } else {
+                    events.sort((a, b) => a.time.localeCompare(b.time));
+                    events.forEach(event => {
+                        const eventItem = $('<div>').addClass('event-item');
+                        const typeClass = event.type === 'Мафия' ? 'mafia' : 
+                                        event.type === 'Покер' ? 'poker' : 'free';
+                        
+                        eventItem.append($('<div>').addClass('event-time').text(event.time));
+                        eventItem.append($('<span>').addClass('event-type').addClass(typeClass).text(event.type));
+                        if (event.description) {
+                            eventItem.append($('<div>').addClass('event-text').text(event.description));
+                        }
+                        
+                        const regCount = event.registration_count || 0;
+                        if (regCount > 0) {
+                            const registeredDiv = $('<div>').addClass('event-registered');
+                            registeredDiv.html(`<span class="event-registered-count">${regCount}</span> ${regCount === 1 ? 'запись' : regCount < 5 ? 'записи' : 'записей'}`);
+                            eventItem.append(registeredDiv);
+                        }
+                        
+                        // Register button - only for future days
+                        const isPastDay = dayDate.getTime() < today.getTime();
+                        if (!isPastDay) {
+                            const telegramId = localStorage.getItem('pulse_telegram_id') || '';
+                            const isRegistered = event.is_registered || false;
+                            const registerBtn = $('<button>').addClass('register-btn')
+                                .text(isRegistered ? '✓ Записан' : 'Записаться')
+                                .addClass(isRegistered ? 'registered' : '');
+                            
+                            registerBtn.on('click', (e) => {
+                                e.stopPropagation();
+                                if (isRegistered) {
+                                    unregisterFromEvent(event.id);
+                                } else {
+                                    registerForEvent(event.id);
+                                }
+                            });
+                            eventItem.append(registerBtn);
+                        }
+                        
+                        // Make event item clickable to show details
+                        eventItem.css('cursor', 'pointer');
+                        eventItem.on('click', function(e) {
+                            if (!$(e.target).hasClass('register-btn')) {
+                                showEventDetails(event.id);
+                            }
+                        });
+                        
+                        eventsContainer.append(eventItem);
+                    });
+                }
+                
+                dayCard.append(eventsContainer);
+                
+                if (IS_ADMIN) {
+                    const addBtn = $('<button>').addClass('add-event-btn')
+                        .text('+ Добавить событие')
+                        .on('click', () => addEvent(dateKey, dayNames[i]));
+                    dayCard.append(addBtn);
+                }
+                
+                container.append(dayCard);
+            }
+            
+            updateWeekRange();
+        }
+
+        function addEvent(dateKey, dayName) {
+            if (!IS_ADMIN) return;
+            
+            const modal = $('#event-modal');
+            modal.data('date', dateKey);
+            modal.addClass('active');
+        }
+
+        function saveEvent() {
+            const dateKey = $('#event-modal').data('date');
+            const time = $('#event-time').val().trim();
+            const eventType = $('#event-type').val();
+            const description = $('#event-description').val().trim();
+            
+            if (!time || !eventType) {
+                alert('Заполните время и тип события');
+                return;
+            }
+            
+            $.ajax({
+                url: '/api/events',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    token: ADMIN_TOKEN,
+                    date: dateKey,
+                    time: time,
+                    event_type: eventType,
+                    description: description || ''
+                })
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    $('#event-modal').removeClass('active');
+                    loadWeekEvents();
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                }
+            })
+            .fail(function() {
+                alert('Ошибка при создании события');
+            });
+        }
+
+        function registerForEvent(eventId) {
+            // Check if user is already registered
+            const existingName = localStorage.getItem('pulse_player_name');
+            const existingTelegram = localStorage.getItem('pulse_telegram_id');
+            
+            if (!existingName || !existingTelegram) {
+                const message = 'Для регистрации на событие необходимо пройти регистрацию через Telegram.\n\n' +
+                               'Пожалуйста, введите ваше имя и Telegram username:';
+                const playerName = prompt(message + '\n\nВведите ваше имя:');
+                if (!playerName) return;
+                
+                const telegramUsername = prompt('Введите ваш Telegram username (например, @username или просто username):');
+                if (!telegramUsername) {
+                    alert('Telegram username обязателен для регистрации');
+                    return;
+                }
+                
+                // Clean telegram username (remove @ if present)
+                const cleanTelegram = telegramUsername.replace('@', '').trim();
+                
+                // Save to localStorage
+                try {
+                    localStorage.setItem('pulse_player_name', playerName);
+                    localStorage.setItem('pulse_telegram_id', cleanTelegram);
+                } catch (e) {}
+                
+                // Continue with registration
+                registerWithTelegram(eventId, playerName, cleanTelegram);
+            } else {
+                // Use existing registration
+                registerWithTelegram(eventId, existingName, existingTelegram);
+            }
+        }
+        
+        function registerWithTelegram(eventId, playerName, telegramUsername) {
+            const cleanTelegram = telegramUsername.replace('@', '').trim();
+            
+            $.ajax({
+                url: `/api/events/${eventId}/register`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ 
+                    player_name: playerName,
+                    telegram_username: cleanTelegram,
+                    telegram_id: cleanTelegram // Using username as ID for now
+                })
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    loadWeekEvents();
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                }
+            })
+            .fail(function() {
+                alert('Ошибка при регистрации');
+            });
+        }
+
+        function unregisterFromEvent(eventId) {
+            const telegramId = localStorage.getItem('pulse_telegram_id');
+            if (!telegramId) {
+                alert('Не найден Telegram ID. Пожалуйста, зарегистрируйтесь заново.');
+                return;
+            }
+            
+            $.ajax({
+                url: `/api/events/${eventId}/unregister`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ telegram_id: telegramId })
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    loadWeekEvents();
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                }
+            })
+            .fail(function() {
+                alert('Ошибка при отмене регистрации');
+            });
+        }
+
+        function loadWeekEvents() {
+            const weekEnd = new Date(currentWeekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            const startDate = formatDate(currentWeekStart);
+            const endDate = formatDate(weekEnd);
+            const telegramId = localStorage.getItem('pulse_telegram_id') || '';
+            
+            const url = `/api/events?start_date=${startDate}&end_date=${endDate}` + 
+                       (telegramId ? `&telegram_id=${encodeURIComponent(telegramId)}` : '');
+            
+            $.getJSON(url)
+                .done(function(data) {
+                    if (data.ok) {
+                        weekEvents = {};
+                        data.events.forEach(event => {
+                            if (!weekEvents[event.date]) {
+                                weekEvents[event.date] = [];
+                            }
+                            // Ensure registered is always an array
+                            const registered = Array.isArray(event.registered) ? event.registered : 
+                                             event.registered ? [event.registered] : [];
+                            
+                            weekEvents[event.date].push({
+                                id: event.id,
+                                time: event.time,
+                                type: event.event_type,
+                                description: event.description,
+                                registered: registered,
+                                registration_count: event.registration_count || 0,
+                                is_registered: event.is_registered || false
+                            });
+                        });
+                        renderWeek();
+                        updateNavigationButtons();
+                    }
+                })
+                .fail(function() {
+                    console.error('Failed to load events');
+                });
+        }
+
+        // Navigation
+        function updateNavigationButtons() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const weekStart = new Date(currentWeekStart);
+            weekStart.setHours(0, 0, 0, 0);
+            
+            // Can't go back before initial week (for non-admins)
+            const canGoBack = IS_ADMIN || weekStart.getTime() > initialWeekStart.getTime();
+            
+            const nextWeekStart = new Date(weekStart);
+            nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+            const canGoForward = nextWeekStart.getTime() <= finalWeekEnd.getTime();
+            
+            $('#prev-week').prop('disabled', !canGoBack);
+            if (!canGoBack) {
+                $('#prev-week').css('opacity', '0.3').css('cursor', 'not-allowed');
+            } else {
+                $('#prev-week').css('opacity', '1').css('cursor', 'pointer');
+            }
+            
+            $('#next-week').prop('disabled', !canGoForward);
+            if (!canGoForward) {
+                $('#next-week').css('opacity', '0.3').css('cursor', 'not-allowed');
+            } else {
+                $('#next-week').css('opacity', '1').css('cursor', 'pointer');
+            }
+        }
+
+        // Tabs
+        $('.main-tab-btn').on('click', function(){
+            const tab = $(this).data('tab');
+            $('.main-tab-btn').removeClass('active');
+            $(this).addClass('active');
+            $('.tab-panel').removeClass('active');
+            $(`#tab-${tab}`).addClass('active');
+        });
+
+        $('#prev-week').on('click', () => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const weekStart = new Date(currentWeekStart);
+            weekStart.setHours(0, 0, 0, 0);
+            
+            const canGoBack = IS_ADMIN || weekStart.getTime() > initialWeekStart.getTime();
+            if (!canGoBack) return;
+            
+            currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+            loadWeekEvents();
+        });
+
+        $('#next-week').on('click', () => {
+            const weekStart = new Date(currentWeekStart);
+            weekStart.setHours(0, 0, 0, 0);
+            const weeksFromStart = Math.floor((weekStart - initialWeekStart) / (7 * 24 * 60 * 60 * 1000));
+            
+            const nextWeekStart = new Date(currentWeekStart);
+            nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+            if (nextWeekStart.getTime() > finalWeekEnd.getTime()) return;
+            
+            currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+            loadWeekEvents();
+        });
+
+        // Modal handlers
+        $('#event-modal-close, #event-modal-cancel').on('click', () => {
+            $('#event-modal').removeClass('active');
+        });
+
+        $('#event-modal-save').on('click', saveEvent);
+
+        // Event details modal
+        $('#event-details-close').on('click', () => {
+            $('#event-details-modal').removeClass('active');
+        });
+
+        function showEventDetails(eventId) {
+            $.getJSON(`/api/events/${eventId}/players`)
+                .done(function(data) {
+                    if (data.ok) {
+                        const event = data.event;
+                        const players = data.players;
+                        
+                        // Set event info
+                        const typeNames = {
+                            'Мафия': 'Мафия',
+                            'Покер': 'Покер',
+                            'Свободная игра': 'Свободная игра'
+                        };
+                        const typeColors = {
+                            'Мафия': 'rgba(255, 165, 0, 0.3)',
+                            'Покер': 'rgba(255, 46, 59, 0.3)',
+                            'Свободная игра': 'rgba(0, 238, 255, 0.3)'
+                        };
+                        
+                        $('#event-details-title').text(`${typeNames[event.event_type] || event.event_type} — ${event.date} ${event.time}`);
+                        $('#event-details-time').text(`${event.date} в ${event.time}`);
+                        $('#event-details-type').text(event.event_type).css('background', typeColors[event.event_type] || 'rgba(255, 255, 255, 0.1)').css('padding', '0.5vh 1vw').css('border-radius', '8px').css('display', 'inline-block');
+                        $('#event-details-description').text(event.description || 'Нет описания');
+                        
+                        // Set players list
+                        const playersList = $('#event-details-players-list');
+                        playersList.empty();
+                        
+                        if (players.length === 0) {
+                            playersList.html('<div style="color: var(--text-muted); font-size: 1.4vh; text-align: center; padding: 2vh;">Нет записанных игроков</div>');
+                        } else {
+                            players.forEach(function(player, index) {
+                                const playerItem = $('<div>').addClass('event-player-item');
+                                const playerName = $('<div>').addClass('event-player-name').text(`${index + 1}. ${player.name}`);
+                                
+                                let telegramLink = '';
+                                if (player.telegram_username) {
+                                    const username = player.telegram_username.startsWith('@') ? player.telegram_username : '@' + player.telegram_username;
+                                    telegramLink = $('<a>').addClass('event-player-telegram')
+                                        .attr('href', `https://t.me/${player.telegram_username.replace('@', '')}`)
+                                        .attr('target', '_blank')
+                                        .text(username);
+                                } else if (player.telegram_id) {
+                                    telegramLink = $('<a>').addClass('event-player-telegram')
+                                        .attr('href', `https://t.me/${player.telegram_id}`)
+                                        .attr('target', '_blank')
+                                        .text('@' + player.telegram_id);
+                                } else {
+                                    telegramLink = $('<span>').css('color', 'var(--text-muted)').text('Нет Telegram');
+                                }
+                                
+                                playerItem.append(playerName);
+                                playerItem.append(telegramLink);
+                                playersList.append(playerItem);
+                            });
+                        }
+                        
+                        // Set actions (delete button for admin)
+                        const actionsDiv = $('#event-details-actions');
+                        actionsDiv.empty();
+                        
+                        if (IS_ADMIN) {
+                            const deleteBtn = $('<button>').addClass('event-delete-btn')
+                                .text('Отменить событие')
+                                .on('click', function() {
+                                    if (confirm('Вы уверены, что хотите отменить это событие? Все записи будут удалены.')) {
+                                        deleteEvent(eventId);
+                                    }
+                                });
+                            actionsDiv.append(deleteBtn);
+                        }
+                        
+                        $('#event-details-modal').addClass('active');
+                    } else {
+                        alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                    }
+                })
+                .fail(function() {
+                    alert('Ошибка при загрузке деталей события');
+                });
+        }
+
+        function deleteEvent(eventId) {
+            $.ajax({
+                url: `/api/events/${eventId}`,
+                method: 'DELETE',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    token: ADMIN_TOKEN
+                })
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    $('#event-details-modal').removeClass('active');
+                    loadWeekEvents();
+                    alert('Событие отменено');
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                }
+            })
+            .fail(function() {
+                alert('Ошибка при отмене события');
+            });
+        }
+
+        // Event details modal
+        $('#event-details-close').on('click', () => {
+            $('#event-details-modal').removeClass('active');
+        });
+
+        function showEventDetails(eventId) {
+            $.getJSON(`/api/events/${eventId}/players`)
+                .done(function(data) {
+                    if (data.ok) {
+                        const event = data.event;
+                        const players = data.players;
+                        
+                        // Set event info
+                        const typeNames = {
+                            'Мафия': 'Мафия',
+                            'Покер': 'Покер',
+                            'Свободная игра': 'Свободная игра'
+                        };
+                        const typeColors = {
+                            'Мафия': 'rgba(255, 165, 0, 0.3)',
+                            'Покер': 'rgba(255, 46, 59, 0.3)',
+                            'Свободная игра': 'rgba(0, 238, 255, 0.3)'
+                        };
+                        
+                        $('#event-details-title').text(`${typeNames[event.event_type] || event.event_type} — ${event.date} ${event.time}`);
+                        $('#event-details-time').text(`${event.date} в ${event.time}`);
+                        $('#event-details-type').text(event.event_type).css('background', typeColors[event.event_type] || 'rgba(255, 255, 255, 0.1)').css('padding', '0.5vh 1vw').css('border-radius', '8px').css('display', 'inline-block');
+                        $('#event-details-description').text(event.description || 'Нет описания');
+                        
+                        // Set players list
+                        const playersList = $('#event-details-players-list');
+                        playersList.empty();
+                        
+                        if (players.length === 0) {
+                            playersList.html('<div style="color: var(--text-muted); font-size: 1.4vh; text-align: center; padding: 2vh;">Нет записанных игроков</div>');
+                        } else {
+                            players.forEach(function(player, index) {
+                                const playerItem = $('<div>').addClass('event-player-item');
+                                const playerName = $('<div>').addClass('event-player-name').text(`${index + 1}. ${player.name}`);
+                                
+                                let telegramLink = '';
+                                if (player.telegram_username) {
+                                    const username = player.telegram_username.startsWith('@') ? player.telegram_username : '@' + player.telegram_username;
+                                    telegramLink = $('<a>').addClass('event-player-telegram')
+                                        .attr('href', `https://t.me/${player.telegram_username.replace('@', '')}`)
+                                        .attr('target', '_blank')
+                                        .text(username);
+                                } else if (player.telegram_id) {
+                                    telegramLink = $('<a>').addClass('event-player-telegram')
+                                        .attr('href', `https://t.me/${player.telegram_id}`)
+                                        .attr('target', '_blank')
+                                        .text('@' + player.telegram_id);
+                                } else {
+                                    telegramLink = $('<span>').css('color', 'var(--text-muted)').text('Нет Telegram');
+                                }
+                                
+                                playerItem.append(playerName);
+                                playerItem.append(telegramLink);
+                                playersList.append(playerItem);
+                            });
+                        }
+                        
+                        // Set actions (delete button for admin)
+                        const actionsDiv = $('#event-details-actions');
+                        actionsDiv.empty();
+                        
+                        if (IS_ADMIN) {
+                            const deleteBtn = $('<button>').addClass('event-delete-btn')
+                                .text('Отменить событие')
+                                .on('click', function() {
+                                    if (confirm('Вы уверены, что хотите отменить это событие? Все записи будут удалены.')) {
+                                        deleteEvent(eventId);
+                                    }
+                                });
+                            actionsDiv.append(deleteBtn);
+                        }
+                        
+                        $('#event-details-modal').addClass('active');
+                    } else {
+                        alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                    }
+                })
+                .fail(function() {
+                    alert('Ошибка при загрузке деталей события');
+                });
+        }
+
+        function deleteEvent(eventId) {
+            $.ajax({
+                url: `/api/events/${eventId}`,
+                method: 'DELETE',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    token: ADMIN_TOKEN
+                })
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    $('#event-details-modal').removeClass('active');
+                    loadWeekEvents();
+                    alert('Событие отменено');
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                }
+            })
+            .fail(function() {
+                alert('Ошибка при отмене события');
+            });
+        }
+
+        // Socket.IO for real-time updates
+        const socket = io();
+        socket.on('events_update', function(data) {
+            loadWeekEvents();
+        });
+
+        // Auth buttons (placeholder logic)
+        $('#login-btn').on('click', function(){
+            const username = $('#login-username').val().trim();
+            if (!username) {
+                alert('Введите ваш Telegram или email');
+                return;
+            }
+            alert('Временный вход выполнен: ' + username);
+        });
+
+        $('#register-btn').on('click', function(){
+            const name = $('#reg-name').val().trim();
+            const tg = $('#reg-telegram').val().trim();
+            if (!name || !tg) {
+                alert('Введите имя и telegram');
+                return;
+            }
+            localStorage.setItem('pulse_player_name', name);
+            localStorage.setItem('pulse_telegram_id', tg.replace('@',''));
+            alert('Данные сохранены. Теперь можно записываться на события.');
+        });
+
+        // Initial load
+        loadWeekEvents();
+    </script>
+</body>
+</html>
+

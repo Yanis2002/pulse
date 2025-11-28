@@ -1,0 +1,1527 @@
+{% include 'header.html' %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>PULSE | Blind Timer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script>
+        window.PULSE_TIMER_IS_ADMIN  = {{ 'true' if is_admin else 'false' }};
+        window.PULSE_TIMER_ADMIN_TOKEN = "{{ admin_token }}";
+        let breaksInitializedFromServer = false;
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+    <style>
+        /* ================= PULSE | CLUB — TIMER STYLE LIKE SCREENSHOT ================= */
+
+        :root{
+            --bg-top:#050509;
+            --bg-bottom:#020514;
+            --accent:#ff2e3b;
+            --accent-soft:#ff4b5c;
+            --accent-dim:rgba(255,46,59,.35);
+            --text:#ffffff;
+            --text-muted:#9ba1b6;
+            --border-soft:rgba(255,255,255,.12);
+            --card-bg:#080811;
+            --card-bg-soft:#0d0d17;
+            --radius:22px;
+            --radius-pill:999px;
+            --shadow-strong:0 30px 80px rgba(0,0,0,.95);
+            --shadow-soft:0 0 45px rgba(0,0,0,.7);
+            --timer-glow:0 0 80px rgba(255,60,90,0.9);
+        }
+
+        *{margin:0;padding:0;box-sizing:border-box;}
+        html,body{height:100%;}
+
+        body{
+            font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+            color:var(--text);
+            background:
+                    radial-gradient(circle at top, #1a1014 0,#050509 35%,#020514 100%);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .root{
+            width:100vw;
+            min-height:110vh;
+            display:flex;
+            flex-direction:column;
+            padding:1.8vh 2.8vw 3.2vh;
+        }
+
+        /* ================= TOP BAR - HIDDEN (using header.html instead) ================= */
+
+        .top-bar{
+            display:none;
+        }
+
+        .top-left{
+            display:flex;
+            align-items:center;
+            gap:1.4vw;
+        }
+
+        .logo{
+            width:7vh;
+            height:7vh;
+            object-fit:contain;
+            border-radius:16px;
+            box-shadow:var(--shadow-soft);
+        }
+
+        .club-title{
+            font-weight:800;
+            font-size:4.6vh;
+            letter-spacing:0.24em;
+        }
+
+        .top-right{
+            display:flex;
+            align-items:center;
+            gap:1vw;
+        }
+
+        .status-chip{
+            padding:0.9vh 2.4vw;
+            border-radius:var(--radius-pill);
+            background:rgba(255,40,50,0.22);
+            border:1px solid var(--accent-dim);
+            color:var(--accent-soft);
+            font-weight:800;
+            font-size:2.1vh;
+            display:flex;
+            align-items:center;
+            gap:0.9vh;
+            text-transform:uppercase;
+        }
+
+        .status-chip::before{
+            content:"";
+            width:1.5vh;
+            height:1.5vh;
+            border-radius:50%;
+            background:var(--accent-soft);
+            box-shadow:0 0 12px var(--accent-soft);
+        }
+
+        .status-chip.closed{
+            background:rgba(255,255,255,.05);
+            color:var(--text-muted);
+            border-color:rgba(255,255,255,.1);
+        }
+        .status-chip.closed::before{
+            background:#555;
+            box-shadow:none;
+        }
+
+        .btn-top{
+            padding:0.9vh 1.8vw;
+            border-radius:var(--radius-pill);
+            border:1px solid rgba(255,255,255,.16);
+            background:rgba(8,8,16,.9);
+            color:var(--text-muted);
+            font-size:1.8vh;
+            font-weight:600;
+            letter-spacing:.18em;
+            text-transform:uppercase;
+            cursor:pointer;
+        }
+        .btn-top:hover{
+            border-color:rgba(255,255,255,.4);
+            color:var(--text);
+        }
+        
+        .btn-settings{
+            margin-top:2vh;
+            padding:1.2vh 2.4vw;
+            border-radius:var(--radius-pill);
+            border:1px solid var(--accent-dim);
+            background:rgba(255,46,59,0.15);
+            color:var(--accent-soft);
+            font-size:1.8vh;
+            font-weight:700;
+            letter-spacing:.1em;
+            text-transform:uppercase;
+            cursor:pointer;
+            transition:all 0.3s ease;
+            box-shadow:0 4px 20px rgba(0,0,0,0.4);
+        }
+        .btn-settings:hover{
+            background:rgba(255,46,59,0.25);
+            border-color:var(--accent);
+            box-shadow:0 0 30px rgba(255,46,59,0.5);
+            transform:translateY(-2px);
+        }
+        .btn-settings:active{
+            transform:translateY(0);
+        }
+
+        .nav-btn {
+            padding: 1.2vh 2.5vw;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(8, 8, 16, 0.9);
+            color: var(--text);
+            font-size: 1.8vh;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover {
+            border-color: var(--accent-soft);
+            background: rgba(255, 46, 59, 0.15);
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.4);
+        }
+
+        /* ================= MAIN: TIMER + LEFT INFO ================= */
+
+        .main{
+            position:relative;
+            flex:1;
+            display:flex;
+            align-items:flex-start;
+            justify-content:center;
+            padding-top:4vh;
+        }
+
+        /* левый столбик */
+
+        .col-left{
+            position:absolute;
+            left:0;
+            top:0;
+            padding-left:0.3vw;
+            padding-top:2vh;
+            display:flex;
+            flex-direction:column;
+            gap:1.8vh;
+        }
+
+        .info-card{
+            min-width:15vw;
+            background:radial-gradient(circle at top,#171722,#050510 65%);
+            border-radius:16px;
+            border:1px solid rgba(255,255,255,.16);
+            box-shadow:var(--shadow-soft);
+            padding:1.6vh 1.8vw;
+            display:flex;
+            flex-direction:column;
+            gap:0.6vh;
+        }
+
+        .info-label{
+            font-size:1.8vh;
+            letter-spacing:.22em;
+            text-transform:uppercase;
+            color:var(--text-muted);
+            font-weight:700;
+        }
+
+        .info-value{
+            font-size:3.2vh;
+            font-weight:800;
+            letter-spacing:.18em;
+        }
+
+        .info-card-timer .info-value{
+            font-size:3.6vh;
+            letter-spacing:.14em;
+        }
+
+        /* центр: круглый таймер */
+
+        .col-center{
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            margin-top:-2vh;
+        }
+
+        .timer-wrapper{
+            position:relative;
+            width:52vh;
+            height:52vh;
+            cursor:pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .timer-wrapper:hover{
+            transform: scale(1.02);
+        }
+
+        #timer-ring{
+            position:absolute;
+            inset:0;
+            transform:rotate(-90deg);
+            filter:var(--timer-glow);
+        }
+
+        .ring-bg{
+            fill:none;
+            stroke:rgba(255,255,255,.14);
+            stroke-width:8;
+        }
+
+        .ring-fg{
+            fill:none;
+            stroke:var(--accent);
+            stroke-width:10;
+            stroke-linecap:round;
+            transition:stroke-dashoffset .25s linear;
+        }
+
+        .timer-label{
+            position:absolute;
+            inset:0;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            gap:1.2vh;
+            text-align:center;
+        }
+
+        .timer-level{
+            font-size:2.4vh;
+            font-weight:800;
+            letter-spacing:.26em;
+            text-transform:uppercase;
+            color:var(--text-muted);
+        }
+
+        .timer-value{
+            font-family:"SF Mono",Consolas,monospace;
+            font-size:20vh;  /* гигантский таймер */
+            font-weight:900;
+            letter-spacing:.16em;
+        }
+
+        .col-right{display:none;}
+
+        /* ================= BOTTOM: SMALL / BIG BLIND / ANTE ================= */
+
+        .bottom{
+            margin-top:-10vh;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+        }
+
+        .blinds-row{
+            width:100%;
+            display:flex;
+            justify-content:center;
+            align-items:stretch;
+            gap:2.4vw;
+        }
+
+        .blind-card{
+            width:22vw;
+            max-width:380px;
+            background:radial-gradient(circle at top,#171722,#050510 70%);
+            border-radius:18px;
+            border:1px solid var(--accent-dim);
+            box-shadow:0 26px 70px rgba(0,0,0,.92);
+            padding:1.8vh 2vw 2.4vh;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            gap:0.8vh;
+        }
+
+        .blind-card-main{
+            border-color:var(--accent);
+            box-shadow:0 0 60px rgba(255,60,90,0.9);
+        }
+
+        .blind-label{
+            font-size:1.9vh;
+            letter-spacing:.24em;
+            text-transform:uppercase;
+            color:var(--text-muted);
+            font-weight:700;
+        }
+
+        .blind-value{
+            font-size:6.4vh;
+            font-weight:900;
+            letter-spacing:.14em;
+            color:var(--accent-soft);
+        }
+
+        /* ================= LEGAL NOTE ================= */
+
+        /* Splash Screen */
+        .splash-screen {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, #050509 0%, #020514 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 0.8s ease-out;
+        }
+
+        .splash-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .logo-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4vh;
+        }
+
+        .logo-splash {
+            width: 25vh;
+            height: 25vh;
+            object-fit: contain;
+            filter: drop-shadow(0 0 100px rgba(255, 46, 59, 1));
+            animation: logoPulse 2s ease-in-out infinite;
+            transform-origin: center;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 60px rgba(255, 46, 59, 0.8));
+            }
+            50% {
+                transform: scale(1.1);
+                filter: drop-shadow(0 0 100px rgba(255, 46, 59, 1));
+            }
+        }
+
+        .progress-bar-container {
+            width: 40vw;
+            max-width: 500px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 4vh;
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.3);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff2e3b 0%, #ff4b5c 50%, #ff6b7a 100%);
+            border-radius: 10px;
+            width: 0%;
+            animation: progressFill 2.5s ease-out forwards;
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.8), 0 0 40px rgba(255, 46, 59, 0.5);
+        }
+
+        @keyframes progressFill {
+            0% {
+                width: 0%;
+            }
+            100% {
+                width: 100%;
+            }
+        }
+
+        .particles {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--accent-soft);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-soft);
+            animation: particleFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes particleFloat {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+                opacity: 0.6;
+            }
+            50% {
+                transform: translate(var(--tx, 50px), var(--ty, -50px)) scale(1.5);
+                opacity: 1;
+            }
+        }
+
+        .splash-title {
+            font-size: 6vh;
+            font-weight: 900;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--accent-soft);
+            text-shadow: 0 0 60px rgba(255, 46, 59, 0.8);
+            animation: titleGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% {
+                text-shadow: 0 0 40px rgba(255, 46, 59, 0.8);
+            }
+            50% {
+                text-shadow: 0 0 80px rgba(255, 46, 59, 1), 0 0 120px rgba(255, 46, 59, 0.6);
+            }
+        }
+
+        .legal-note{
+            position:fixed;
+            left:3vw;
+            right:3vw;
+            bottom:0.7vh;
+            font-size:1.5vh;
+            line-height:1.3;
+            color:var(--text-muted);
+            text-align:center;
+            opacity:.85;
+            z-index: 100;
+        }
+
+        /* ====== Панель настроек ====== */
+
+        .panel-backdrop{
+            position:fixed;
+            inset:0;
+            background:rgba(0,0,0,.7);
+            opacity:0;
+            pointer-events:none;
+            transition:.2s ease;
+            z-index:50;
+        }
+        .panel-backdrop.visible{opacity:1;pointer-events:auto;}
+        .panel-backdrop.hidden{opacity:0;pointer-events:none;}
+
+        .control-panel{
+            position:fixed;
+            right:2vw;
+            top:4vh;
+            bottom:4vh;
+            width:min(520px,90vw);
+            background:#090911;
+            border-radius:20px;
+            box-shadow:var(--shadow-strong);
+            transform:translateY(20px);
+            opacity:0;
+            pointer-events:none;
+            transition:.22s ease;
+            z-index:60;
+            display:flex;
+            flex-direction:column;
+        }
+        .control-panel.open{
+            transform:translateY(0);
+            opacity:1;
+            pointer-events:auto;
+        }
+        .control-panel.hidden{opacity:0;pointer-events:none;}
+
+        .panel-inner{
+            padding:1.6em 1.8em;
+            display:flex;
+            flex-direction:column;
+            gap:1.4em;
+            overflow:auto;
+        }
+
+        .panel-header{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+        }
+        .panel-title{
+            font-size:15px;
+            text-transform:uppercase;
+            letter-spacing:.14em;
+        }
+        .panel-close{
+            background:none;
+            border:none;
+            color:var(--text-muted);
+            font-size:30px;
+            cursor:pointer;
+        }
+
+        .panel-section{
+            border-top:1px solid rgba(255,255,255,.09);
+            padding-top:1em;
+        }
+        .panel-section-title{
+            font-size:12px;
+            text-transform:uppercase;
+            letter-spacing:.14em;
+            color:var(--text-muted);
+            margin-bottom:.7em;
+        }
+        .panel-buttons{
+            display:flex;
+            flex-wrap:wrap;
+            gap:.6em;
+        }
+        .panel-btn{
+            border-radius:999px;
+            border:1px solid rgba(255,255,255,.18);
+            background:#181820;
+            padding:.45em 1.2em;
+            font-size:12px;
+            letter-spacing:.12em;
+            text-transform:uppercase;
+            cursor:pointer;
+            color:var(--text);
+        }
+        .panel-btn-main{
+            background:var(--accent-soft);
+            border-color:var(--accent-soft);
+            color:#fff;
+        }
+        .panel-btn-secondary{background:#222233;}
+        .panel-btn-danger{
+            border-color:#c0392b;
+            color:#ff6b6b;
+        }
+
+        .panel-grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+            gap:.8em;
+            margin-bottom:.8em;
+        }
+        .panel-field{
+            display:flex;
+            flex-direction:column;
+            gap:.3em;
+            font-size:12px;
+            color:var(--text-muted);
+        }
+        .panel-field input{
+            border-radius:999px;
+            border:1px solid rgba(255,255,255,.18);
+            background:#151520;
+            color:var(--text);
+            padding:.4em 1em;
+            font-size:13px;
+            outline:none;
+        }
+        .panel-field input:focus{border-color:var(--accent-soft);}
+        .panel-break-row{display:flex;gap:.4em;}
+        .panel-note{font-size:11px;color:var(--text-muted);margin-top:.3em;}
+
+        .rating-box{
+            background:#090911;
+            border-radius:18px;
+            border:1px solid rgba(255,255,255,.12);
+            padding:1em 1.2em;
+        }
+        .rating-title{
+            font-size:11px;
+            text-transform:uppercase;
+            letter-spacing:.12em;
+            color:var(--text-muted);
+            margin-bottom:.6em;
+            display:flex;
+            gap:.4em;
+            align-items:center;
+        }
+        .rating-title::before{
+            content:"";
+            width:9px;height:9px;
+            border-radius:50%;
+            background:linear-gradient(135deg,var(--accent-soft),#ffc35c);
+            box-shadow:0 0 7px var(--accent-soft);
+        }
+        .rating-rules{display:flex;flex-direction:column;gap:.25em;}
+        .rating-row{
+            display:flex;
+            justify-content:space-between;
+            border-bottom:1px solid rgba(255,255,255,.06);
+            padding:.25em 0;
+            font-size:12px;
+        }
+        .rating-row:last-child{border-bottom:none;}
+        .rating-place{opacity:.85;}
+        .rating-points{color:var(--accent-soft);font-weight:700;}
+
+        /* адаптация под не-TV */
+        @media(max-width:1300px){
+            .timer-wrapper{width:44vh;height:44vh;}
+            .timer-value{font-size:15vh;}
+            .col-left{
+                position:absolute;
+                left:2vw;
+            }
+            .blinds-row{
+                gap:1.2vw;
+            }
+            .blind-card{
+                width:27vw;
+                max-width:none;
+            }
+        }
+
+        @media(max-width:900px){
+            .root{padding:1.4vh 1.8vw 2.4vh;}
+            .top-bar{flex-direction:column;align-items:flex-start;gap:1vh;}
+            .blinds-row{
+                flex-direction:column;
+                align-items:center;
+            }
+            .blind-card{width:80vw;}
+            .col-left{
+                position:static;
+                flex-direction:row;
+                flex-wrap:wrap;
+                gap:1vh 1vw;
+                padding:0;
+                margin-bottom:2vh;
+            }
+            .main{
+                flex-direction:column;
+                justify-content:flex-start;
+                gap:2vh;
+            }
+        }
+        /* === УВЕЛИЧЕННЫЕ БЛАЙНДЫ — ОЧЕНЬ КРУПНО === */
+
+        .blind-value {
+            font-size: 9vh !important;   /* было 6.4vh */
+            font-weight: 900;
+            letter-spacing: .08em;
+        }
+
+        .blind-label {
+            font-size: 2.6vh !important;   /* подпись тоже чуть крупнее */
+            letter-spacing: .3em;
+        }
+
+        .blind-card {
+            min-height: 22vh;              /* карточки выше */
+        }
+
+        .blind-card-main {
+            box-shadow: 0 0 80px rgba(255,60,90,0.95) !important;
+            border-width: 2px;
+        }
+        /* === МОБИЛЬНАЯ АДАПТАЦИЯ ПАНЕЛИ НАСТРОЕК (ТЕЛЕФОНЫ) === */
+        @media (max-width: 900px) {
+
+            /* панель как нижний слайдер на весь экран */
+            .control-panel {
+                left: 0;
+                right: 0;
+                top: auto;
+                bottom: 0;
+                width: 100vw;
+                max-height: 80vh;
+                border-radius: 20px 20px 0 0;
+                box-shadow: 0 -18px 40px rgba(0,0,0,.95);
+            }
+
+            .panel-inner {
+                padding: 1.1em 1em 1.4em;
+            }
+
+            .panel-header {
+                align-items: center;
+                gap: .6em;
+            }
+
+            .panel-title {
+                font-size: 12px;
+                line-height: 1.3;
+                letter-spacing: .12em;
+            }
+
+            .panel-close {
+                font-size: 26px;
+                line-height: 1;
+                padding: 0 .1em;
+            }
+
+            /* кнопка "НАСТРОЙКИ" более удобная на телефоне */
+            .btn-top {
+                font-size: 1.6vh;
+                padding: 1vh 3vw;
+                letter-spacing: .16em;
+            }
+
+            /* кнопки управления таймером — в колонку, на всю ширину */
+            .panel-buttons {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .panel-btn {
+                width: 100%;
+                text-align: center;
+                justify-content: center;
+                font-size: 11px;
+                padding: .65em 1em;
+            }
+
+            /* поля ввода — по одному в строке */
+            .panel-grid {
+                grid-template-columns: 1fr;
+                gap: .7em;
+            }
+
+            .panel-field {
+                font-size: 11px;
+            }
+
+            .panel-field span {
+                line-height: 1.3;
+            }
+
+            .panel-field input {
+                font-size: 13px;
+                padding: .55em 1em;
+            }
+
+            /* строки рейтинга немного мельче, чтобы влезали */
+            .rating-row {
+                font-size: 11px;
+            }
+
+            .rating-points {
+                white-space: nowrap;
+                margin-left: .6em;
+            }
+        }
+
+        /* ещё ужимаем на совсем маленьких экранах */
+        @media (max-width: 600px) {
+            .control-panel {
+                max-height: 85vh;
+            }
+
+            .panel-title {
+                font-size: 11px;
+            }
+
+            .panel-btn {
+                font-size: 10px;
+                padding: .55em .9em;
+            }
+
+            .panel-field input {
+                font-size: 12px;
+            }
+        }
+
+
+    </style>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div class="splash-screen" id="splash">
+        <div class="particles" id="particles"></div>
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='pulse_logo_transparent.png') }}" class="logo-splash" alt="PULSE">
+            <div class="splash-title">PULSE | CLUB</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+<div class="root" id="main-content" style="display: none;">
+    <div class="main">
+        <!-- слева LEVEL / NEXT / BREAK / LATE REG -->
+        <div class="col-left">
+            <div class="info-card">
+                <div class="info-label">LEVEL</div>
+                <div class="info-value">
+                    <span id="info-level-current">1</span>
+                    &nbsp;/&nbsp;
+                    <span id="info-level-total">26</span>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="info-label">NEXT LEVEL</div>
+                <div class="info-value" id="next-level-pill">200 / 400</div>
+            </div>
+
+            <div class="info-card info-card-timer">
+                <div class="info-label">ПЕРЕРЫВ ЧЕРЕЗ</div>
+                <div class="info-value" id="break-in-value">—</div>
+            </div>
+
+            <div class="info-card info-card-timer">
+                <div class="info-label">ПОЗДНЯЯ РЕГА</div>
+                <div class="info-value" id="late-reg-value">—</div>
+            </div>
+        </div>
+
+        <!-- центр — таймер -->
+        <div class="col-center">
+            <div class="timer-wrapper" id="timer-wrapper">
+                <svg id="timer-ring" viewBox="0 0 100 100">
+                    <circle class="ring-bg" cx="50" cy="50" r="45"></circle>
+                    <circle class="ring-fg" cx="50" cy="50" r="45"></circle>
+                </svg>
+                <div class="timer-label">
+                    <div id="timer-level" class="timer-level">УРОВЕНЬ 1</div>
+                    <div id="timer-value" class="timer-value">00:00</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-right"></div>
+    </div>
+
+    <!-- низ — SMALL / BIG / ANTE -->
+    <div class="bottom">
+        <div class="blinds-row">
+            <div class="blind-card">
+                <div class="blind-label">SMALL BLIND</div>
+                <div class="blind-value" id="sb-value">100</div>
+            </div>
+            <div class="blind-card blind-card-main">
+                <div class="blind-label">BIG BLIND</div>
+                <div class="blind-value" id="bb-value">200</div>
+            </div>
+            <div class="blind-card">
+                <div class="blind-label">ANTE</div>
+                <div class="blind-value" id="ante-value">0</div>
+            </div>
+        </div>
+        
+        <!-- Кнопка настроек (только для администратора) -->
+        {% if is_admin %}
+        <button class="btn-settings" id="btn-settings">⚙ Настройки</button>
+        {% endif %}
+    </div>
+</div>
+
+<audio id="beep" src="{{ url_for('static', filename='beep.mp3') }}" preload="auto"></audio>
+
+<div id="panel-backdrop" class="panel-backdrop hidden"></div>
+
+<div id="control-panel" class="control-panel hidden">
+    <div class="panel-inner">
+        <div class="panel-header">
+            <div class="panel-title">Настройки турнира PULSE | CLUB</div>
+            <button id="panel-close" class="panel-close">&times;</button>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-section-title">Управление таймером</div>
+            <div class="panel-buttons">
+                <button id="p-start" class="panel-btn panel-btn-main">Старт / Пауза</button>
+                <button id="p-next"  class="panel-btn panel-btn-secondary">Следующий уровень</button>
+                <button id="p-reset" class="panel-btn">Сбросить текущий уровень</button>
+                <button id="p-reset-all" class="panel-btn panel-btn-danger">Сбросить турнир</button>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-section-title">Настройки уровней</div>
+            <div class="panel-grid">
+                <label class="panel-field">
+                    <span>Минуты уровня ДО окончания поздней регистрации</span>
+                    <input type="number" id="cfg-pre-min" min="1" max="60" step="1" value="12">
+                </label>
+                <label class="panel-field">
+                    <span>Минуты уровня ПОСЛЕ окончания поздней регистрации</span>
+                    <input type="number" id="cfg-post-min" min="1" max="60" step="1" value="10">
+                </label>
+                <label class="panel-field">
+                    <span>Количество уровней до поздней регистрации</span>
+                    <input type="number" id="cfg-late-levels" min="1" max="27" step="1" value="10">
+                </label>
+            </div>
+            <button id="cfg-apply" class="panel-btn panel-btn-main">Применить настройки уровней</button>
+            <div class="panel-note">Настройки уровней применяются ко всем экранам. Изменять их могут только админ-клиенты.</div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-section-title">Перерывы</div>
+            <div class="panel-grid">
+                <div class="panel-field">
+                    <span>Перерыв 1: после уровня / минут</span>
+                    <div class="panel-break-row">
+                        <input type="number" id="br-level-1" min="1" max="27" placeholder="уровень">
+                        <input type="number" id="br-min-1"   min="1" max="60" placeholder="минут">
+                    </div>
+                </div>
+                <div class="panel-field">
+                    <span>Перерыв 2</span>
+                    <div class="panel-break-row">
+                        <input type="number" id="br-level-2" min="1" max="27">
+                        <input type="number" id="br-min-2"   min="1" max="60">
+                    </div>
+                </div>
+                <div class="panel-field">
+                    <span>Перерыв 3</span>
+                    <div class="panel-break-row">
+                        <input type="number" id="br-level-3" min="1" max="27">
+                        <input type="number" id="br-min-3"   min="1" max="60">
+                    </div>
+                </div>
+                <div class="panel-field">
+                    <span>Перерыв 4</span>
+                    <div class="panel-break-row">
+                        <input type="number" id="br-level-4" min="1" max="27">
+                        <input type="number" id="br-min-4"   min="1" max="60">
+                    </div>
+                </div>
+                <div class="panel-field">
+                    <span>Перерыв 5</span>
+                    <div class="panel-break-row">
+                        <input type="number" id="br-level-5" min="1" max="27">
+                        <input type="number" id="br-min-5"   min="1" max="60">
+                    </div>
+                </div>
+            </div>
+            <button id="cfg-breaks-apply" class="panel-btn panel-btn-main">Применить настройки перерывов</button>
+            <div class="panel-note">Пустые строки игнорируются. Нумерация уровней — как на таймере (1, 2, 3 ...).</div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-section-title">Рейтинговые очки</div>
+            <div id="rating-rules-panel" class="rating-rules">
+                <div class="panel-note">Сетка очков загружается из базы (php.php?action=rating_rules) и выводится на главный экран.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const IS_ADMIN    = (window.PULSE_TIMER_IS_ADMIN === true);
+    const ADMIN_TOKEN = window.PULSE_TIMER_ADMIN_TOKEN || "";
+
+    // Splash screen logic - show on page refresh
+    (function() {
+        const mainContent = document.getElementById("main-content");
+        const splashEl = document.getElementById("splash");
+        
+        if (!splashEl) {
+            // No splash element, show content immediately
+            if (mainContent) {
+                mainContent.style.display = 'flex';
+            }
+        } else {
+            // Check if this is a hard reload (F5, Ctrl+R) or navigation
+            const navEntry = performance.getEntriesByType('navigation')[0];
+            const isHardReload = navEntry && navEntry.type === 'reload';
+            
+            // Show splash only on hard reload, not on navigation between pages
+            if (isHardReload) {
+                // Hard reload - show splash
+                if (mainContent) {
+                    mainContent.style.display = 'none';
+                }
+                setTimeout(function(){
+                    splashEl.classList.add('hidden');
+                    if (mainContent) {
+                        mainContent.style.display = 'flex';
+                    }
+                }, 2800);
+                
+                // Create particles
+                function createParticles() {
+                    const container = document.getElementById("particles");
+                    if (!container) return;
+                    const count = 30;
+                    
+                    for (let i = 0; i < count; i++) {
+                        const particle = document.createElement("div");
+                        particle.className = "particle";
+                        const angle = (Math.PI * 2 * i) / count;
+                        const radius = 200 + Math.random() * 100;
+                        const x = Math.cos(angle) * radius;
+                        const y = Math.sin(angle) * radius;
+                        particle.style.left = `calc(50% + ${x}px)`;
+                        particle.style.top = `calc(50% + ${y}px)`;
+                        particle.style.setProperty("--tx", `${Math.cos(angle) * 30}px`);
+                        particle.style.setProperty("--ty", `${Math.sin(angle) * 30}px`);
+                        particle.style.animationDelay = `${Math.random() * 2}s`;
+                        container.appendChild(particle);
+                    }
+                }
+                
+                createParticles();
+            } else {
+                // Navigation from another page - hide splash immediately
+                splashEl.classList.add('hidden');
+                if (mainContent) {
+                    mainContent.style.display = 'flex';
+                }
+            }
+        }
+    })();
+
+    // Структура уровней (блайнды — фикс, breakMinutes прилетает с сервера)
+    const LEVELS = [
+        {sb:100,    bb:200,     minutes:12, breakMinutes:0},
+        {sb:200,    bb:400,     minutes:12, breakMinutes:0},
+        {sb:300,    bb:600,     minutes:12, breakMinutes:0},
+        {sb:400,    bb:800,     minutes:12, breakMinutes:7},
+        {sb:500,    bb:1000,    minutes:12, breakMinutes:0},
+        {sb:600,    bb:1200,    minutes:12, breakMinutes:0},
+        {sb:800,    bb:1500,    minutes:12, breakMinutes:0},
+        {sb:1000,   bb:2000,    minutes:12, breakMinutes:5},
+        {sb:1200,   bb:2500,    minutes:12, breakMinutes:0},
+        {sb:1500,   bb:3000,    minutes:12, breakMinutes:10},
+        {sb:2000,   bb:4000,    minutes:10, breakMinutes:0},
+        {sb:3000,   bb:6000,    minutes:10, breakMinutes:0},
+        {sb:4000,   bb:8000,    minutes:10, breakMinutes:0},
+        {sb:6000,   bb:12000,   minutes:10, breakMinutes:0},
+        {sb:8000,   bb:16000,   minutes:10, breakMinutes:5},
+        {sb:10000,  bb:20000,   minutes:10, breakMinutes:0},
+        {sb:15000,  bb:30000,   minutes:10, breakMinutes:0},
+        {sb:20000,  bb:40000,   minutes:10, breakMinutes:0},
+        {sb:30000,  bb:60000,   minutes:10, breakMinutes:0},
+        {sb:50000,  bb:100000,  minutes:10, breakMinutes:0},
+        {sb:100000, bb:200000,  minutes:10, breakMinutes:5},
+        {sb:200000, bb:400000,  minutes:10, breakMinutes:0},
+        {sb:400000, bb:800000,  minutes:10, breakMinutes:0},
+        {sb:1000000,bb:2000000, minutes:10, breakMinutes:0},
+        {sb:2000000,bb:4000000, minutes:10, breakMinutes:0},
+        {sb:4000000,bb:8000000, minutes:10, breakMinutes:0}
+    ];
+
+    // состояние от сервера
+    let state = {
+        levelIndex: 0,
+        isInBreak: false,
+        isRunning: false,
+        timeLeft: 0,
+        ringTotal: 0,
+        lastUpdate: 0,
+        version: 0
+    };
+
+    // Конфиг уровней (истина — на сервере; тут только копия для UI)
+    let levelConfig = {
+        preMinutes: 12,
+        postMinutes: 10,
+        lateLevels: 10
+    };
+    // есть ли несохранённые правки в полях настроек уровней
+    let levelInputsDirty = false;
+
+
+    // Перерывы в UI
+    let breakConfig = []; // [{level, minutes}]
+
+    let serverOffset = 0;
+    let prevTimeLeftInt = null;
+
+    function fmt(n){return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g," ");}
+    function pad(n){return n<10?"0"+n:""+n;}
+
+    function formatHMS(secs){
+        const s=Math.max(0,secs|0);
+        const h=Math.floor(s/3600);
+        const m=Math.floor((s%3600)/60);
+        const sec=s%60;
+        if(h>0)return pad(h)+":"+pad(m)+":"+pad(sec);
+        return pad(m)+":"+pad(sec);
+    }
+
+    function minutesForLevel(i){
+        const idx=Math.max(0,Math.min(i,LEVELS.length-1));
+        return idx<levelConfig.lateLevels?levelConfig.preMinutes:levelConfig.postMinutes;
+    }
+
+    function getLiveTimeLeft(){
+        const clientNow=Date.now()/1000;
+        const serverNow=clientNow+serverOffset;
+        let t=state.timeLeft;
+        if(state.isRunning){
+            const elapsed=serverNow-state.lastUpdate;
+            t=state.timeLeft-elapsed;
+        }
+        return Math.max(0,t);
+    }
+
+    function isLateRegOpen(liveSec){
+        const idx=state.levelIndex;
+        const t=liveSec;
+        const lastLate=levelConfig.lateLevels-1;
+        return (idx<lastLate)||(idx===lastLate && t>0);
+    }
+
+    function calcSecsToLateRegEnd(liveSec){
+        const idx=state.levelIndex;
+        const t=liveSec;
+        const isInBreak=state.isInBreak;
+        const lateIdx=levelConfig.lateLevels-1;
+
+        if(idx<lateIdx){
+            let curRem=t;
+            let further=0;
+            for(let i=idx+1;i<lateIdx;i++){
+                const lv=LEVELS[i];
+                further += minutesForLevel(i)*60 + (lv.breakMinutes||0)*60;
+            }
+            const last=LEVELS[lateIdx];
+            const lastSecs = minutesForLevel(lateIdx)*60 + (last.breakMinutes||0)*60;
+            return curRem+further+lastSecs;
+        } else if(idx===lateIdx && !isInBreak){
+            const cur=LEVELS[lateIdx];
+            return t + (cur.breakMinutes||0)*60;
+        } else if(idx===lateIdx && isInBreak){
+            return t;
+        }
+        return 0;
+    }
+
+    function calcSecsToNextBreak(liveSec){
+        if(state.isInBreak)return null;
+        const idx=state.levelIndex;
+        let t=liveSec;
+        let j=null;
+        for(let i=idx;i<LEVELS.length;i++){
+            if((LEVELS[i].breakMinutes||0)>0){j=i;break;}
+        }
+        if(j===null)return null;
+        let total=t;
+        for(let i=idx+1;i<=j;i++){
+            total += minutesForLevel(i)*60;
+        }
+        return total;
+    }
+
+    const RING_RADIUS=45;
+    const RING_LENGTH=2*Math.PI*RING_RADIUS;
+    function updateRing(progress){
+        const p=Math.max(0,Math.min(1,progress));
+        const offset=RING_LENGTH*(1-p);
+        const fg=document.querySelector(".ring-fg");
+        if(fg){
+            fg.style.strokeDasharray=RING_LENGTH;
+            fg.style.strokeDashoffset=offset;
+        }
+    }
+
+    function render(){
+        const idx=state.levelIndex;
+        const lvl=LEVELS[idx]||LEVELS[0];
+
+        const liveFloat=getLiveTimeLeft();
+        const liveSec=Math.max(0,Math.floor(liveFloat+0.0001));
+        const isBreak=state.isInBreak;
+        const ringTotal=Math.max(1,state.ringTotal||1);
+        const progress=liveFloat/ringTotal;
+
+        const mm=Math.floor(liveSec/60);
+        const ss=liveSec%60;
+
+        // заголовок таймера
+        $("#timer-level").text(isBreak?"ПЕРЕРЫВ":"УРОВЕНЬ "+(idx+1));
+        $("#timer-value").text(pad(mm)+":"+pad(ss));
+
+        // левый блок LEVEL
+        $("#info-level-current").text(idx+1);
+        $("#info-level-total").text(LEVELS.length);
+
+        // NEXT LEVEL
+        const nextLevel=LEVELS[idx+1]||null;
+        if(nextLevel){
+            $("#next-level-pill").text(fmt(nextLevel.sb)+" / "+fmt(nextLevel.bb));
+        }else{
+            $("#next-level-pill").text("—");
+        }
+
+        // карточки SMALL / BIG / ANTE
+        $("#sb-value").text(fmt(lvl.sb));
+        $("#bb-value").text(fmt(lvl.bb));
+        $("#ante-value").text(fmt(lvl.bb)); // поменяешь логику анте — подставишь сюда своё
+
+        // статус поздней регы + счётчик
+        const lateOpen=isLateRegOpen(liveSec);
+        const chip=$("#late-reg-chip");
+        if(lateOpen){
+            chip.removeClass("closed").text("ПОЗДНЯЯ РЕГА ОТКРЫТА");
+        }else{
+            chip.addClass("closed").text("ПОЗДНЯЯ РЕГА ЗАКРЫТА");
+        }
+
+        const secsLate  = calcSecsToLateRegEnd(liveSec);
+        const secsBreak = calcSecsToNextBreak(liveSec);
+
+        // ПЕРЕРЫВ ЧЕРЕЗ
+        const $breakVal = $("#break-in-value");
+        if(isBreak){
+            $breakVal.text("СЕЙЧАС");
+        }else if(secsBreak !== null && secsBreak > 0){
+            $breakVal.text(formatHMS(secsBreak));
+        }else{
+            $breakVal.text("—");
+        }
+
+        // ПОЗДНЯЯ РЕГА
+        const $lateVal = $("#late-reg-value");
+        if(lateOpen){
+            if(secsLate > 0){
+                $lateVal.text(formatHMS(secsLate));
+            }else{
+                $lateVal.text("00:00");
+            }
+        }else{
+            $lateVal.text("ЗАКРЫТА");
+        }
+
+        const btnMain=$("#p-start");
+        btnMain.text(state.isRunning?"Пауза":"Старт / Пауза");
+
+        updateRing(progress);
+
+        if(prevTimeLeftInt!==null && prevTimeLeftInt>0 && liveSec===0){
+            const beep=document.getElementById("beep");
+            if(beep){try{beep.currentTime=0;beep.play();}catch(e){}}
+        }
+        prevTimeLeftInt=liveSec;
+    }
+
+    const socket = io({
+        path: "/socket.io/",
+        transports: ["websocket"],
+    });
+
+    socket.on("connect",()=>{console.log("Timer socket connected",socket.id);});
+    socket.on("disconnect",()=>{console.log("Timer socket disconnected");});
+
+    socket.on("state",(s)=>{
+        if (!s) return;
+        state = Object.assign({}, state, s);
+
+        // конфиг длин уровней с сервера
+        // конфиг длин уровней с сервера
+        if (s.levelConfig) {
+            const oldCfg = { ...levelConfig };
+
+            levelConfig = {
+                preMinutes:  s.levelConfig.preMinutes  ?? oldCfg.preMinutes,
+                postMinutes: s.levelConfig.postMinutes ?? oldCfg.postMinutes,
+                lateLevels:  s.levelConfig.lateLevels  ?? oldCfg.lateLevels,
+            };
+
+            // если пользователь НЕ правил поля — можно аккуратно синхронизировать инпуты
+            if (!levelInputsDirty) {
+                const preEl  = document.getElementById("cfg-pre-min");
+                const postEl = document.getElementById("cfg-post-min");
+                const lateEl = document.getElementById("cfg-late-levels");
+
+                if (preEl)  preEl.value  = levelConfig.preMinutes;
+                if (postEl) postEl.value = levelConfig.postMinutes;
+                if (lateEl) lateEl.value = levelConfig.lateLevels;
+            }
+        }
+
+
+
+        // перерывы с сервера -> в локальный LEVELS + форму (один раз)
+        if (Array.isArray(s.breakMinutes)) {
+            s.breakMinutes.forEach((m, i) => {
+                if (LEVELS[i]) LEVELS[i].breakMinutes = m || 0;
+            });
+
+            if (!window.breaksInitializedFromServer) {
+                fillBreakInputsFromConfig();
+                window.breaksInitializedFromServer = true;
+            }
+        }
+
+        const clientNow = Date.now() / 1000;
+        serverOffset = (state.lastUpdate || clientNow) - clientNow;
+        render();
+    });
+
+    function sendAction(action){
+        if(!ADMIN_TOKEN)return;
+        socket.emit("action",{action,token:ADMIN_TOKEN});
+    }
+
+    function renderRating(targetSelector,rules){
+        const $el=$(targetSelector);
+        if(!$el.length)return;
+        $el.empty();
+        rules.forEach(row=>{
+            const place=row.place||"";
+            const pts=row.points!=null?row.points:"";
+            const $row=$("<div class='rating-row'>");
+            $("<span class='rating-place'>").text(place).appendTo($row);
+            $("<span class='rating-points'>").text(pts+" очков").appendTo($row);
+            $row.appendTo($el);
+        });
+    }
+
+    function loadRatingRules(){
+        $.getJSON("php.php",{action:"rating_rules"})
+            .done(resp=>{
+                if(!resp || resp.ok===false || !Array.isArray(resp.rules)) throw new Error("bad");
+                renderRating("#rating-rules-panel",resp.rules);
+            })
+            .fail(()=>{
+                const demo=[
+                    {place:"1 место",points:120},
+                    {place:"2 место",points:100},
+                    {place:"3 место",points:80},
+                    {place:"4–10 место",points:60},
+                    {place:"11–15 место",points:40},
+                ];
+                renderRating("#rating-rules-panel",demo);
+            });
+    }
+
+    function openPanel(){
+        // Кнопка настроек доступна всем, но панель открывается только для админов
+        if (!IS_ADMIN) {
+            alert("Настройки доступны только администратору");
+            return;
+        }
+        $("#panel-backdrop").addClass("visible").removeClass("hidden");
+        $("#control-panel").addClass("open").removeClass("hidden");
+    }
+
+    function closePanel(){
+        $("#panel-backdrop").removeClass("visible").addClass("hidden");
+        $("#control-panel").removeClass("open").addClass("hidden");
+    }
+
+    function fillBreakInputsFromConfig(){
+        // breakConfig формируем из LEVELS, где есть breakMinutes
+        breakConfig = [];
+        LEVELS.forEach((lv,i)=>{
+            if(lv.breakMinutes>0){
+                breakConfig.push({level:i+1,minutes:lv.breakMinutes});
+            }
+        });
+        const rows=5;
+        for(let i=0;i<rows;i++){
+            const cfg=breakConfig[i];
+            $("#br-level-"+(i+1)).val(cfg?cfg.level:"");
+            $("#br-min-"+(i+1)).val(cfg?cfg.minutes:"");
+        }
+    }
+
+    $(function(){
+        if (!IS_ADMIN) {
+            $("#btn-panel").hide();
+            $("#btn-settings").hide();
+        }
+
+        setInterval(render,100);
+
+        $("#btn-panel").on("click",openPanel);
+        $("#btn-settings").on("click",openPanel);
+        $("#panel-close").on("click",closePanel);
+        $("#panel-backdrop").on("click",closePanel);
+
+        // Клик по красному кругу для запуска/паузы
+        $("#timer-wrapper").on("click",function(){
+            if(IS_ADMIN){
+                sendAction("toggle");
+            }
+        });
+
+        $("#p-start").on("click",()=>sendAction("toggle"));
+        $("#p-next").on("click", ()=>sendAction("next"));
+        $("#p-reset").on("click",()=>sendAction("reset"));
+        $("#p-reset-all").on("click",function(){
+            if(!ADMIN_TOKEN)return;
+            if(!confirm("Сбросить турнир к самому началу? Это действие нельзя отменить."))return;
+            sendAction("reset_all");
+        });
+
+        $("#cfg-pre-min").val(levelConfig.preMinutes);
+        $("#cfg-post-min").val(levelConfig.postMinutes);
+        $("#cfg-late-levels").val(levelConfig.lateLevels);
+
+        // как только пользователь что-то поменял в одном из полей — помечаем как несохранённые
+        $("#cfg-pre-min, #cfg-post-min, #cfg-late-levels").on("input", function() {
+            levelInputsDirty = true;
+        });
+
+        $("#cfg-apply").on("click",function(){
+            if(!ADMIN_TOKEN){
+                alert("Нет прав админа");
+                return;
+            }
+
+            const pre = parseInt($("#cfg-pre-min").val(),10)||1;
+            const post= parseInt($("#cfg-post-min").val(),10)||1;
+            const late= parseInt($("#cfg-late-levels").val(),10)||1;
+
+            levelConfig={
+                preMinutes:Math.max(1,Math.min(60,pre)),
+                postMinutes:Math.max(1,Math.min(60,post)),
+                lateLevels:Math.max(1,Math.min(LEVELS.length,late)),
+            };
+
+            socket.emit("action",{
+                action:"config",
+                token:ADMIN_TOKEN,
+                cfg:{...levelConfig,breaks:breakConfig}
+            });
+
+            alert("Настройки уровней отправлены на сервер");
+
+            // считаем, что локальные правки сохранены — снова можно принимать значения с сервера
+            levelInputsDirty = false;
+
+        });
+
+        $("#cfg-breaks-apply").on("click",function(){
+            if(!ADMIN_TOKEN){
+                alert("Нет прав админа");
+                return;
+            }
+            const arr=[];
+            const rows=5;
+            for(let i=0;i<rows;i++){
+                const lvl=parseInt($("#br-level-"+(i+1)).val(),10);
+                const mn =parseInt($("#br-min-"+(i+1)).val(),10);
+                if(Number.isFinite(lvl)&&Number.isFinite(mn)&&lvl>=1&&lvl<=LEVELS.length&&mn>0){
+                    arr.push({level:lvl,minutes:mn});
+                }
+            }
+            breakConfig=arr;
+
+            socket.emit("action",{
+                action:"config",
+                token:ADMIN_TOKEN,
+                cfg:{...levelConfig,breaks:breakConfig}
+            });
+
+            alert("Перерывы отправлены на сервер");
+        });
+
+        loadRatingRules();
+    });
+</script>
+
+<div class="legal-note">
+    Мероприятие PULSE | CLUB носит развлекательный характер.
+    Игра не связана с денежными ставками, выигрышами или иными азартными рисками.
+    Участники соревнуются только за турнирные очки рейтинга клуба.
+</div>
+
+</body>
+</html>
+

@@ -1,0 +1,1276 @@
+{% include 'header.html' %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>PULSE | Рейтинг</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        :root {
+            --bg-top: #050509;
+            --bg-bottom: #020514;
+            --accent: #ff2e3b;
+            --accent-soft: #ff4b5c;
+            --accent-dim: rgba(255, 46, 59, 0.35);
+            --accent-dark: #cc1a25;
+            --text: #ffffff;
+            --text-muted: #9ba1b6;
+            --border-soft: rgba(255, 255, 255, 0.12);
+            --card-bg: #080811;
+            --card-bg-soft: #0d0d17;
+            --radius: 22px;
+            --shadow-strong: 0 30px 80px rgba(0, 0, 0, 0.95);
+            --shadow-soft: 0 0 45px rgba(0, 0, 0, 0.7);
+            --glow-red: 0 0 40px rgba(255, 46, 59, 0.6);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text);
+            background: radial-gradient(circle at top, #1a1014 0,#050509 35%,#020514 100%);
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        /* Splash Screen */
+        .splash-screen {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, #050509 0%, #020514 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 0.8s ease-out;
+        }
+
+        .splash-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .logo-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4vh;
+        }
+
+        .logo-splash {
+            width: 25vh;
+            height: 25vh;
+            object-fit: contain;
+            filter: drop-shadow(0 0 100px rgba(255, 46, 59, 1));
+            animation: logoPulse 2s ease-in-out infinite;
+            transform-origin: center;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 60px rgba(255, 46, 59, 0.8));
+            }
+            50% {
+                transform: scale(1.1);
+                filter: drop-shadow(0 0 100px rgba(255, 46, 59, 1));
+            }
+        }
+
+        .progress-bar-container {
+            width: 40vw;
+            max-width: 500px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 4vh;
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.3);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff2e3b 0%, #ff4b5c 50%, #ff6b7a 100%);
+            border-radius: 10px;
+            width: 0%;
+            animation: progressFill 2.5s ease-out forwards;
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.8), 0 0 40px rgba(255, 46, 59, 0.5);
+        }
+
+        @keyframes progressFill {
+            0% {
+                width: 0%;
+            }
+            100% {
+                width: 100%;
+            }
+        }
+
+        .particles {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--accent-soft);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-soft);
+            animation: particleFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes particleFloat {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+                opacity: 0.6;
+            }
+            50% {
+                transform: translate(var(--tx, 50px), var(--ty, -50px)) scale(1.5);
+                opacity: 1;
+            }
+        }
+
+        .splash-title {
+            font-size: 6vh;
+            font-weight: 900;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--accent-soft);
+            text-shadow: 0 0 60px rgba(255, 46, 59, 0.8);
+            animation: titleGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% {
+                text-shadow: 0 0 40px rgba(255, 46, 59, 0.8);
+            }
+            50% {
+                text-shadow: 0 0 80px rgba(255, 46, 59, 1), 0 0 120px rgba(255, 46, 59, 0.6);
+            }
+        }
+
+        .container {
+            width: 100%;
+            min-height: 80vh;
+            padding: 6vh 4vw 4vh 4vw;
+            display: flex;
+            flex-direction: column;
+            gap: 3vh;
+        }
+        
+        .container[style*="display: none"] {
+            display: none !important;
+        }
+
+        /* Header */
+
+        .nav-btn {
+            padding: 1.2vh 2.5vw;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(8, 8, 16, 0.9);
+            color: var(--text);
+            font-size: 1.8vh;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover {
+            border-color: var(--accent-soft);
+            background: rgba(255, 46, 59, 0.15);
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.4);
+        }
+
+        /* Admin Panel */
+        .admin-panel {
+            background: rgba(8, 8, 16, 0.95);
+            border: 1px solid var(--accent-dim);
+            border-radius: 18px;
+            padding: 2vh 2.5vw;
+            margin-bottom: 2vh;
+            display: none;
+        }
+
+        .admin-panel.visible {
+            display: block;
+        }
+
+        .admin-title {
+            font-size: 1.8vh;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--accent-soft);
+            margin-bottom: 1.5vh;
+            font-weight: 700;
+        }
+
+        .admin-textarea {
+            width: 100%;
+            min-height: 150px;
+            background: #151520;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 12px;
+            color: var(--text);
+            padding: 1.5vh 1.5vw;
+            font-size: 1.6vh;
+            font-family: monospace;
+            resize: vertical;
+            outline: none;
+        }
+
+        .admin-textarea:focus {
+            border-color: var(--accent-soft);
+            box-shadow: 0 0 15px rgba(255, 46, 59, 0.3);
+        }
+
+        .admin-btn {
+            margin-top: 1.5vh;
+            padding: 1vh 2vw;
+            border-radius: 999px;
+            border: none;
+            background: var(--accent-soft);
+            color: #fff;
+            font-size: 1.6vh;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .admin-btn:hover {
+            background: var(--accent);
+            box-shadow: 0 0 25px rgba(255, 46, 59, 0.6);
+        }
+
+        .admin-note {
+            margin-top: 1vh;
+            font-size: 1.3vh;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .poker-player-item {
+            display: flex;
+            align-items: center;
+            gap: 1vw;
+            padding: 1vh 1.5vw;
+            margin-bottom: 1vh;
+            background: rgba(15, 15, 25, 0.8);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .poker-player-name {
+            flex: 1;
+            font-weight: 700;
+            color: var(--text);
+            font-size: 1.8vh;
+        }
+
+        .poker-player-stats {
+            display: flex;
+            gap: 0.5vw;
+            font-size: 1.4vh;
+            color: var(--text-muted);
+        }
+
+        .poker-player-buttons {
+            display: flex;
+            gap: 0.5vw;
+        }
+
+        .poker-btn {
+            padding: 0.6vh 1.2vw;
+            border-radius: 6px;
+            border: 1px solid var(--accent-dim);
+            background: rgba(255, 46, 59, 0.1);
+            color: var(--text);
+            font-size: 1.3vh;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .poker-btn:hover {
+            background: rgba(255, 46, 59, 0.3);
+            border-color: var(--accent-soft);
+        }
+
+        .poker-btn.active {
+            background: var(--accent-soft);
+            color: #fff;
+        }
+
+        .poker-btn.eliminated {
+            opacity: 0.5;
+        }
+
+        .place-input {
+            width: 60px;
+            padding: 0.4vh 0.5vw;
+            border-radius: 6px;
+            border: 1px solid var(--accent-dim);
+            background: rgba(8, 8, 16, 0.9);
+            color: var(--text);
+            font-size: 1.3vh;
+            text-align: center;
+        }
+
+        /* Rating Table */
+        .rating-table-wrapper {
+            flex: 1;
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.15) 0%, rgba(204, 26, 37, 0.1) 100%);
+            border-radius: 24px;
+            border: 1px solid var(--accent-dim);
+            padding: 2.5vh 2.5vw;
+            box-shadow: var(--shadow-strong);
+            overflow: hidden;
+        }
+
+        .rating-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .rating-table thead {
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.3) 0%, rgba(204, 26, 37, 0.25) 100%);
+        }
+
+        .rating-table th {
+            padding: 2vh 1.5vw;
+            text-align: left;
+            font-weight: 800;
+            font-size: 2.2vh;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text);
+            border-bottom: 2px solid var(--accent-dim);
+        }
+
+        .rating-table th:first-child {
+            width: 10%;
+        }
+
+        .rating-table th:nth-child(2) {
+            width: 60%;
+        }
+
+        .rating-table th:last-child {
+            width: 30%;
+            text-align: right;
+        }
+
+        .rating-table tbody tr {
+            background: rgba(8, 8, 16, 0.6);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s;
+        }
+
+        .rating-table tbody tr:hover {
+            background: rgba(255, 46, 59, 0.15);
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.2);
+        }
+
+        .rating-table tbody tr.highlight {
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.3) 0%, rgba(255, 75, 92, 0.2) 100%);
+            border-left: 3px solid var(--accent-soft);
+            box-shadow: 0 0 30px rgba(255, 46, 59, 0.4);
+        }
+
+        .rating-table td {
+            padding: 2.2vh 1.5vw;
+            font-size: 2.4vh;
+            font-weight: 700;
+        }
+
+        .rating-table td:first-child {
+            color: var(--text-muted);
+            font-weight: 800;
+        }
+
+        .rating-table td:nth-child(2) {
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        .rating-table td:last-child {
+            text-align: right;
+            color: var(--accent-soft);
+            font-weight: 900;
+            text-shadow: 0 0 10px rgba(255, 75, 92, 0.5);
+        }
+
+        .rating-place {
+            font-size: 2.2vh;
+        }
+
+        .rating-name {
+            font-size: 2.4vh;
+        }
+
+        .rating-points {
+            font-size: 2.8vh;
+        }
+
+        /* Top 3 special styling */
+        .rating-table tbody tr.place-1 {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 46, 59, 0.15) 100%);
+            border-left: 4px solid #ffd700;
+        }
+
+        .rating-table tbody tr.place-2 {
+            background: linear-gradient(135deg, rgba(192, 192, 192, 0.15) 0%, rgba(255, 46, 59, 0.1) 100%);
+            border-left: 4px solid #c0c0c0;
+        }
+
+        .rating-table tbody tr.place-3 {
+            background: linear-gradient(135deg, rgba(205, 127, 50, 0.15) 0%, rgba(255, 46, 59, 0.1) 100%);
+            border-left: 4px solid #cd7f32;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 5vh;
+            color: var(--text-muted);
+            font-size: 2.2vh;
+        }
+
+        /* Tabs */
+        .tabs-container {
+            display: flex;
+            gap: 1vw;
+            margin-bottom: 2vh;
+        }
+
+        .tab-btn {
+            padding: 1.2vh 2.5vw;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(8, 8, 16, 0.6);
+            color: var(--text-muted);
+            font-size: 1.8vh;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            border-color: var(--accent-soft);
+            background: rgba(255, 46, 59, 0.15);
+        }
+
+        .tab-btn.active {
+            background: var(--accent-soft);
+            color: #fff;
+            border-color: var(--accent-soft);
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.4);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .month-selector {
+            display: flex;
+            gap: 1vw;
+            margin-bottom: 2vh;
+            align-items: center;
+        }
+
+        .month-btn {
+            padding: 1vh 2.5vw;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(8, 8, 16, 0.6);
+            color: var(--text-muted);
+            font-size: 1.8vh;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .month-btn:hover {
+            border-color: var(--accent-soft);
+            background: rgba(255, 46, 59, 0.15);
+        }
+
+        .month-btn.active {
+            background: var(--accent-soft);
+            color: #fff;
+            border-color: var(--accent-soft);
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.4);
+        }
+
+        .date-selector {
+            margin-bottom: 2vh;
+            display: flex;
+            align-items: center;
+            gap: 1vw;
+        }
+
+        /* Tournament Table Styles */
+        .table-container {
+            flex: 1;
+            background: rgba(8, 8, 16, 0.6);
+            border-radius: 24px;
+            border: 1px solid var(--accent-dim);
+            padding: 2vh 2vw;
+            overflow: auto;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
+        }
+
+        .table-title {
+            font-size: 4vh;
+            font-weight: 900;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent-soft);
+            margin-bottom: 2vh;
+            text-shadow: 0 0 20px rgba(255, 46, 59, 0.6);
+        }
+
+        .tournament-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(15, 15, 25, 0.8);
+        }
+
+        .tournament-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.3) 0%, rgba(204, 26, 37, 0.25) 100%);
+        }
+
+        .tournament-table th {
+            padding: 1.5vh 1.2vw;
+            text-align: center;
+            font-weight: 800;
+            font-size: 1.8vh;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 80px;
+        }
+
+        .tournament-table th:first-child {
+            position: sticky;
+            left: 0;
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.4) 0%, rgba(204, 26, 37, 0.35) 100%);
+            z-index: 11;
+        }
+
+        .tournament-table th:nth-child(2) {
+            position: sticky;
+            left: 80px;
+            background: linear-gradient(135deg, rgba(255, 46, 59, 0.4) 0%, rgba(204, 26, 37, 0.35) 100%);
+            z-index: 11;
+            text-align: left;
+            min-width: 200px;
+        }
+
+        .tournament-table tbody tr {
+            background: rgba(8, 8, 16, 0.6);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+
+        .tournament-table tbody tr:hover {
+            background: rgba(255, 46, 59, 0.1);
+        }
+
+        .tournament-table td {
+            padding: 1.2vh 1vw;
+            text-align: center;
+            font-size: 1.8vh;
+            font-weight: 600;
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .tournament-table td:first-child {
+            position: sticky;
+            left: 0;
+            background: rgba(8, 8, 16, 0.95);
+            z-index: 5;
+            font-weight: 800;
+            color: var(--text-muted);
+        }
+
+        .tournament-table td:nth-child(2) {
+            position: sticky;
+            left: 80px;
+            background: rgba(8, 8, 16, 0.95);
+            z-index: 5;
+            text-align: left;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .tournament-table td.total {
+            font-weight: 900;
+            color: var(--accent-soft);
+            text-shadow: 0 0 10px rgba(255, 75, 92, 0.5);
+        }
+
+        .tournament-table td.bounty {
+            font-weight: 800;
+            color: #ffd700;
+        }
+
+        .editable-cell {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .editable-cell:hover {
+            background: rgba(255, 46, 59, 0.2) !important;
+        }
+
+        .editable-cell.editing {
+            background: rgba(255, 46, 59, 0.3) !important;
+        }
+
+        .cell-input {
+            width: 100%;
+            background: transparent;
+            border: 2px solid var(--accent-soft);
+            color: var(--text);
+            font-size: 1.8vh;
+            font-weight: 600;
+            text-align: center;
+            padding: 0.5vh 0.5vw;
+            outline: none;
+        }
+
+        /* Mobile */
+        @media (max-width: 900px) {
+            .container {
+                padding: 2vh 3vw 3vh;
+            }
+
+
+            .rating-table-wrapper {
+                padding: 1.5vh 2vw;
+            }
+
+            .rating-table th,
+            .rating-table td {
+                padding: 1.5vh 1vw;
+                font-size: 1.8vh;
+            }
+
+            .rating-place {
+                font-size: 1.8vh;
+            }
+
+            .rating-name {
+                font-size: 2vh;
+            }
+
+            .rating-points {
+                font-size: 2.2vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div class="splash-screen" id="splash">
+        <div class="particles" id="particles"></div>
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='pulse_logo_transparent.png') }}" class="logo-splash" alt="PULSE">
+            <div class="splash-title">PULSE | CLUB</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="main-content" style="display: none;">
+        {% if is_admin %}
+        <div class="admin-panel" id="admin-panel">
+            <div class="admin-title">Управление участниками</div>
+            
+            <!-- Date selector for poker tournament -->
+            <div class="date-selector" style="margin-bottom: 2vh;">
+                <label style="color: var(--text-muted); font-size: 1.6vh; margin-right: 1vw;">Дата турнира:</label>
+                <input type="date" id="tournament-date" style="padding: 0.8vh 1.5vw; border-radius: 8px; border: 1px solid var(--accent-dim); background: rgba(8, 8, 16, 0.9); color: var(--text); font-size: 1.6vh;">
+                <button class="admin-btn" id="load-tournament" style="margin-left: 1vw; padding: 0.8vh 1.5vw;">Загрузить</button>
+            </div>
+            
+            <!-- Poker tournament players list -->
+            <div id="poker-players-list" style="margin-bottom: 2vh; display: none;">
+                <div class="admin-title" style="font-size: 1.6vh; margin-bottom: 1vh;">Игроки покер-турнира</div>
+                <div id="poker-players-container"></div>
+                <button class="admin-btn" id="finalize-tournament" style="margin-top: 1.5vh; display: none;">Финализировать турнир</button>
+            </div>
+            
+        </div>
+        <button class="nav-btn" id="toggle-admin" style="align-self: flex-start;">Показать панель управления</button>
+        {% endif %}
+
+        <!-- Tabs -->
+        <div class="tabs-container">
+            <button class="tab-btn active" data-tab="simple">Простой рейтинг</button>
+            <button class="tab-btn" data-tab="tournament">ОБЩИЙ РЕЙТИНГ</button>
+        </div>
+        
+        <!-- Month selector for tournament tab -->
+        <div class="month-selector" id="month-selector" style="display: none;">
+            <button class="month-btn active" data-month="November">Ноябрь</button>
+            <button class="month-btn" data-month="December">Декабрь</button>
+        </div>
+        
+
+        <!-- Simple Rating Tab -->
+        <div class="tab-content active" id="tab-simple">
+            <div class="rating-table-wrapper">
+                <table class="rating-table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>ИГРОК</th>
+                            <th>ОЧКИ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rating-body">
+                        <tr>
+                            <td colspan="3" class="loading">Загрузка рейтинга...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tournament Table Tab -->
+        <div class="tab-content" id="tab-tournament">
+            <div class="table-container">
+                <div class="table-title" id="tournament-title">ОБЩИЙ РЕЙТИНГ</div>
+                <div id="tournament-table-wrapper">
+                    <div class="loading">Загрузка данных турнира...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script> 
+$(document).ready(function() {
+    // Splash screen logic - show only on hard reload (F5/Ctrl+R), not on navigation
+    const mainContent = document.getElementById("main-content");
+    const splashEl = document.getElementById("splash");
+    
+    if (!splashEl) {
+        // No splash element, show content immediately
+        if (mainContent) {
+            mainContent.style.display = 'flex';
+        }
+    } else {
+        // Check if this is a hard reload (F5, Ctrl+R) or navigation
+        const navEntry = performance.getEntriesByType('navigation')[0];
+        const isHardReload = navEntry && navEntry.type === 'reload';
+        
+        // Show splash only on hard reload, not on navigation between pages
+        if (isHardReload) {
+            // Hard reload - show splash
+            if (mainContent) {
+                mainContent.style.display = 'none';
+            }
+            setTimeout(function(){
+                splashEl.classList.add('hidden');
+                if (mainContent) {
+                    mainContent.style.display = 'flex';
+                }
+            }, 2800);
+            
+            // Create particles
+            function createParticles() {
+                const container = document.getElementById("particles");
+                if (!container) return;
+                const count = 30;
+                
+                for (let i = 0; i < count; i++) {
+                    const particle = document.createElement("div");
+                    particle.className = "particle";
+                    const angle = (Math.PI * 2 * i) / count;
+                    const radius = 200 + Math.random() * 100;
+                    const x = Math.cos(angle) * radius;
+                    const y = Math.sin(angle) * radius;
+                    particle.style.left = `calc(50% + ${x}px)`;
+                    particle.style.top = `calc(50% + ${y}px)`;
+                    particle.style.setProperty("--tx", `${Math.cos(angle) * 30}px`);
+                    particle.style.setProperty("--ty", `${Math.sin(angle) * 30}px`);
+                    particle.style.animationDelay = `${Math.random() * 2}s`;
+                    container.appendChild(particle);
+                }
+            }
+            
+            createParticles();
+        } else {
+            // Navigation from another page - hide splash immediately
+            splashEl.classList.add('hidden');
+            if (mainContent) {
+                mainContent.style.display = 'flex';
+            }
+        }
+    }
+
+    const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+    const ADMIN_TOKEN = "{{ admin_token }}";
+    let players = [];
+    function renderRating() {
+        const tbody = document.getElementById("rating-body");
+        if (!players || players.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="loading">Нет данных</td></tr>';
+            return;
+        }
+        let html = "";
+        players.forEach((player, idx) => {
+            const place = idx + 1;
+            const placeClass = place === 1 ? "place-1" : place === 2 ? "place-2" : place === 3 ? "place-3" : "";
+            html += `
+                <tr class="${placeClass}">
+                    <td class="rating-place">${place}</td>
+                    <td class="rating-name">${escapeHtml(player.name)}</td>
+                    <td class="rating-points">${formatNumber(player.points)}</td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    }
+    function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    function formatNumber(n) {
+        return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    }
+    function loadRating() {
+        $.getJSON("/api/rating")
+            .done(function(data) {
+                if (data.ok && Array.isArray(data.players)) {
+                    players = data.players;
+                    renderRating();
+                }
+            })
+            .fail(function() {
+                console.error("Failed to load rating");
+            });
+    }
+    if (IS_ADMIN) {
+        let currentPokerPlayers = [];
+        let currentEventId = null;
+        
+        $("#toggle-admin").on("click", function() {
+            const panel = $("#admin-panel");
+            if (panel.hasClass("visible")) {
+                panel.removeClass("visible");
+                $(this).text("Показать панель управления");
+            } else {
+                panel.addClass("visible");
+                $(this).text("Скрыть панель управления");
+            }
+        });
+        
+        // Load poker tournament
+        $("#load-tournament").on("click", function() {
+            const date = $("#tournament-date").val();
+            if (!date) {
+                alert("Выберите дату");
+                return;
+            }
+            
+            $.ajax({
+                url: `/api/poker-tournament/${date}`,
+                method: 'GET',
+                data: { token: ADMIN_TOKEN },
+                dataType: 'json'
+            })
+                .done(function(data) {
+                    if (data.ok) {
+                        currentPokerPlayers = data.players;
+                        currentEventId = data.events.length > 0 ? data.events[0].id : null;
+                        renderPokerPlayers();
+                        $("#poker-players-list").show();
+                    } else {
+                        alert("Ошибка: " + (data.error || "неизвестная ошибка"));
+                    }
+                })
+                .fail(function(xhr) {
+                    if (xhr.status === 403) {
+                        alert("Доступ запрещен. Только администратор может просматривать покер-турниры.");
+                    } else {
+                        alert("Ошибка при загрузке турнира");
+                    }
+                });
+        });
+        
+        function renderPokerPlayers() {
+            const container = $("#poker-players-container");
+            container.empty();
+            
+            if (currentPokerPlayers.length === 0) {
+                container.html('<div class="loading">Нет зарегистрированных игроков</div>');
+                return;
+            }
+            
+            currentPokerPlayers.forEach(function(player) {
+                const item = $('<div>').addClass('poker-player-item');
+                
+                const nameDiv = $('<div>').addClass('poker-player-name').text(player.name);
+                
+                const statsDiv = $('<div>').addClass('poker-player-stats');
+                if (player.has_rent) statsDiv.append($('<span>').text('Аренда '));
+                if (player.reentry_count > 0) statsDiv.append($('<span>').text(`Реинтри: ${player.reentry_count} `));
+                if (player.addon_count > 0) statsDiv.append($('<span>').text(`Аддон: ${player.addon_count} `));
+                if (player.bonus_points > 0) statsDiv.append($('<span>').text(`Бонус: ${player.bonus_points} `));
+                if (player.final_place) statsDiv.append($('<span>').text(`Место: ${player.final_place} `));
+                
+                const buttonsDiv = $('<div>').addClass('poker-player-buttons');
+                
+                // Rent button
+                const rentBtn = $('<button>').addClass('poker-btn')
+                    .text('Аренда')
+                    .toggleClass('active', player.has_rent)
+                    .on('click', function() {
+                        updatePlayerState(player.name, player.event_id, 'rent');
+                    });
+                
+                // Eliminate button
+                const elimBtn = $('<button>').addClass('poker-btn')
+                    .text('Выбытие')
+                    .toggleClass('active', player.is_eliminated)
+                    .toggleClass('eliminated', player.is_eliminated)
+                    .on('click', function() {
+                        updatePlayerState(player.name, player.event_id, 'eliminate');
+                    });
+                
+                // Reentry button
+                const reentryBtn = $('<button>').addClass('poker-btn')
+                    .text(`Реинтри (${player.reentry_count})`)
+                    .on('click', function() {
+                        updatePlayerState(player.name, player.event_id, 'reentry');
+                    });
+                
+                // Addon button
+                const addonBtn = $('<button>').addClass('poker-btn')
+                    .text(`Аддон (${player.addon_count})`)
+                    .on('click', function() {
+                        updatePlayerState(player.name, player.event_id, 'addon');
+                    });
+                
+                // Place input
+                const placeInput = $('<input>').attr('type', 'number').addClass('place-input')
+                    .attr('placeholder', 'Место')
+                    .val(player.final_place || '')
+                    .on('change', function() {
+                        const place = parseInt($(this).val());
+                        if (place) {
+                            updatePlayerState(player.name, player.event_id, 'finalize', place);
+                        }
+                    });
+                
+                buttonsDiv.append(rentBtn, elimBtn, reentryBtn, addonBtn, placeInput);
+                item.append(nameDiv, statsDiv, buttonsDiv);
+                container.append(item);
+            });
+            
+            // Show finalize button if all players have places
+            const allHavePlaces = currentPokerPlayers.every(p => p.final_place);
+            if (allHavePlaces && currentPokerPlayers.length > 0) {
+                $("#finalize-tournament").show();
+            } else {
+                $("#finalize-tournament").hide();
+            }
+        }
+        
+        function updatePlayerState(playerName, eventId, action, place) {
+            const date = $("#tournament-date").val();
+            $.ajax({
+                url: `/api/poker-tournament/${date}/player`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    token: ADMIN_TOKEN,
+                    player_name: playerName,
+                    event_id: eventId,
+                    action: action,
+                    place: place
+                })
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    // Reload tournament
+                    $("#load-tournament").click();
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                }
+            })
+            .fail(function() {
+                alert('Ошибка при обновлении состояния игрока');
+            });
+        }
+        
+        // Finalize tournament
+        $("#finalize-tournament").on("click", function() {
+            if (!confirm("Финализировать турнир? Очки будут добавлены в общий рейтинг.")) {
+                return;
+            }
+            
+            const date = $("#tournament-date").val();
+            $.ajax({
+                url: `/api/poker-tournament/${date}/finalize`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    token: ADMIN_TOKEN,
+                    event_id: currentEventId
+                })
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    alert("Турнир финализирован! Очки добавлены в общий рейтинг.");
+                    loadTournamentData();
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                }
+            })
+            .fail(function() {
+                alert('Ошибка при финализации турнира');
+            });
+        });
+        // Load rating
+        loadRating();
+    }
+    // Socket.IO real-time
+    const socket = io();
+    socket.on("rating_update", function(data) {
+        if (data.players && Array.isArray(data.players)) {
+            players = data.players;
+            renderRating();
+        }
+    });
+    
+    // Tab switching
+    $(".tab-btn").on("click", function() {
+        const tabName = $(this).data("tab");
+        $(".tab-btn").removeClass("active");
+        $(".tab-content").removeClass("active");
+        $(this).addClass("active");
+        $("#tab-" + tabName).addClass("active");
+        
+        if (tabName === "tournament") {
+            $("#month-selector").css("display", "flex");
+            loadTournamentData();
+        } else {
+            $("#month-selector").css("display", "none");
+        }
+    });
+    
+    // Month selector
+    let currentMonth = "November";
+    $(".month-btn").on("click", function() {
+        $(".month-btn").removeClass("active");
+        $(this).addClass("active");
+        currentMonth = $(this).data("month");
+        loadTournamentData();
+    });
+    
+    // Tournament data loading
+    let currentTournamentId = 1;
+    let editingCell = null;
+    
+    function loadTournamentData() {
+        // First, get tournament for selected month
+        $.getJSON(`/api/tournaments?month=${currentMonth}&year=2025`)
+            .done(function(data) {
+                if (data.ok && data.tournaments && data.tournaments.length > 0) {
+                    currentTournamentId = data.tournaments[0].id;
+                    // Load tournament data
+                    $.getJSON(`/api/tournament/${currentTournamentId}`)
+                        .done(function(tournamentData) {
+                            if (tournamentData.ok) {
+                                const monthName = currentMonth === "November" ? "НОЯБРЯ" : "ДЕКАБРЯ";
+                                $("#tournament-title").text("ОБЩИЙ РЕЙТИНГ " + monthName);
+                                renderTournamentTable(tournamentData.data);
+                            }
+                        })
+                        .fail(function() {
+                            $("#tournament-table-wrapper").html('<div class="loading">Ошибка загрузки данных</div>');
+                        });
+                } else {
+                    // Create tournament if doesn't exist
+                    $("#tournament-table-wrapper").html('<div class="loading">Турнир не найден. Создайте турнир через админ-панель.</div>');
+                }
+            })
+            .fail(function() {
+                $("#tournament-table-wrapper").html('<div class="loading">Ошибка загрузки данных</div>');
+            });
+    }
+    
+    function renderTournamentTable(data) {
+        const tournament = data.tournament;
+        const players = data.players;
+        const maxGames = data.max_games || 25;
+        
+        $("#tournament-title").text(tournament.name);
+        
+        let html = '<table class="tournament-table"><thead><tr>';
+        html += '<th>№</th>';
+        html += '<th>Участники</th>';
+        html += '<th>Итого</th>';
+        html += '<th>Баунти</th>';
+        for (let i = 1; i <= maxGames; i++) {
+            html += `<th>${i}</th>`;
+        }
+        html += '</tr></thead><tbody>';
+        
+        players.forEach((player, idx) => {
+            html += `<tr>`;
+            html += `<td>${idx + 1}</td>`;
+            html += `<td>${escapeHtml(player.name)}</td>`;
+            html += `<td class="total">${formatNumber(player.total)}</td>`;
+            html += `<td class="bounty editable-cell" data-player="${player.id}" data-type="bounty">${player.bounty || 0}</td>`;
+            
+            for (let game = 1; game <= maxGames; game++) {
+                const score = player.scores[game] || 0;
+                html += `<td class="editable-cell" data-player="${player.id}" data-game="${game}">${score || ''}</td>`;
+            }
+            html += '</tr>';
+        });
+        
+        html += '</tbody></table>';
+        $("#tournament-table-wrapper").html(html);
+        
+        // Add edit handlers
+        $(".editable-cell").on("click", function() {
+            if (!IS_ADMIN) return;
+            if (editingCell) return;
+            
+            editingCell = $(this);
+            const value = editingCell.text().trim() || "0";
+            const input = $(`<input type="number" class="cell-input" value="${value}">`);
+            
+            editingCell.addClass("editing");
+            editingCell.html(input);
+            input.focus().select();
+            
+            input.on("blur", function() {
+                saveCell();
+            });
+            
+            input.on("keydown", function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    saveCell();
+                } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelEdit();
+                }
+            });
+        });
+    }
+    
+    function saveCell() {
+        if (!editingCell) return;
+        
+        const input = editingCell.find("input");
+        const newValue = parseInt(input.val()) || 0;
+        const playerId = editingCell.data("player");
+        const gameNumber = editingCell.data("game");
+        const isBounty = editingCell.data("type") === "bounty";
+        
+        editingCell.removeClass("editing");
+        
+        if (isBounty) {
+            $.ajax({
+                url: `/api/tournament/${currentTournamentId}/bounty`,
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({
+                    token: ADMIN_TOKEN,
+                    player_id: playerId,
+                    bounty: newValue
+                })
+            }).done(function() {
+                editingCell.text(newValue);
+                loadTournamentData();
+            });
+        } else {
+            $.ajax({
+                url: `/api/tournament/${currentTournamentId}/score`,
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({
+                    token: ADMIN_TOKEN,
+                    player_id: playerId,
+                    game_number: gameNumber,
+                    score: newValue
+                })
+            }).done(function() {
+                editingCell.text(newValue || '');
+                loadTournamentData();
+            });
+        }
+        
+        editingCell = null;
+    }
+    
+    function cancelEdit() {
+        if (!editingCell) return;
+        const originalValue = editingCell.data("original") || "";
+        editingCell.removeClass("editing");
+        editingCell.text(originalValue);
+        editingCell = null;
+    }
+    
+    socket.on("tournament_update", function(data) {
+        if (data.tournament_id === currentTournamentId) {
+            loadTournamentData();
+        }
+    });
+    
+    // Initial load + refresh
+    loadRating();
+    setInterval(loadRating, 5000);
+});
+</script>
+</body>
+</html>
+

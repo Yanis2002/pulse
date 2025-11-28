@@ -1,0 +1,560 @@
+<header class="pulse-header">
+    <div class="header-left">
+        <a href="/" class="logo-link"><img src="{{ url_for('static', filename='pulse_logo_transparent.png') }}" class="logo-header" alt="PULSE"></a>
+        <div class="site-title">
+            <div class="title-main">PULSE <span class="title-accent">| CLUB</span></div>
+        </div>
+    </div>
+    <nav class="header-nav">
+        <a href="/" class="nav-btn">Главная</a>
+        <a href="/rating" class="nav-btn">Рейтинг</a>
+        <a href="/timer" class="nav-btn">Блайнды</a>
+        <a href="/contacts" class="nav-btn">Контакты</a>
+        <a href="javascript:void(0)" class="nav-btn music-icon-btn" id="music-toggle" title="Музыка">
+            <span class="music-icon">🔊</span>
+        </a>
+        <a href="javascript:void(0)" class="nav-btn profile-btn" id="profile-toggle" title="Личный кабинет">
+            <span class="profile-icon">👤</span>
+        </a>
+    </nav>
+</header>
+<style>
+.pulse-header {
+    width: 100vw;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2vw;
+    min-height: 10vh;
+    padding: 1.7vh 2vw 1.7vh 2vw;
+    background: linear-gradient(120deg, #2c003e 0%, #280819 28%, #5d1e26 62%, #a4223a 91%, #450330 100%);
+    box-shadow: 0 3px 16px 2px rgba(90,15,60,0.13);
+    position: relative;
+    z-index: 100;
+}
+.logo-header {
+    height: 7vh;
+    width: 7vh;
+    min-width: 42px;
+    min-height: 42px;
+    object-fit: contain;
+    border-radius: 16px;
+    box-shadow: 0 0 16px #450330;
+    transition: filter 0.25s;
+}
+.logo-link { display:block; }
+.site-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4vh;
+    margin-left: 1.2vw;
+}
+.title-main {
+    font-weight: 900;
+    font-size: 2.8vh;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+    color: #ff4b5c;
+    text-shadow: 0 0 18px #52021e99, 0 0 50px #74212f44;
+}
+.title-accent {
+    color: #fff;
+    text-shadow: 0 0 14px #d8192990;
+}
+.header-left { display:flex; align-items: center; }
+.header-nav { display: flex; gap: 1vw; }
+.nav-btn {
+    padding: 0.9vh 2vw;
+    border-radius: 999px;
+    border: none;
+    background: rgba(255,65,90,0.06);
+    color: #ffe6eb;
+    font-size: 1.5vh;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 0 16px #31011312;
+    transition: filter 0.17s, background 0.17s;
+}
+.nav-btn:hover {
+    background: rgba(255,46,59,0.17);
+    color: #fff;
+    filter: brightness(1.23);
+}
+.music-icon-btn {
+    padding: 0.9vh 1.5vw !important;
+    font-size: 2.2vh !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.music-icon {
+    display: inline-block;
+    transition: transform 0.2s;
+}
+.music-icon-btn:hover .music-icon {
+    transform: scale(1.1);
+}
+.profile-btn {
+    padding: 0.9vh 1.5vw !important;
+    font-size: 2.2vh !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.profile-icon {
+    display: inline-block;
+    transition: transform 0.2s;
+}
+.profile-btn:hover .profile-icon {
+    transform: scale(1.1);
+}
+@media (max-width: 900px) {
+    .title-main { font-size:2.0vh; }
+    .header-nav { gap:2vw; }
+    .pulse-header {flex-wrap:wrap;gap:0.8vw;}
+    .logo-header {height: 4.5vh; width: 4.5vh;}
+}
+</style>
+<audio id="music-player" loop src="{{ url_for('static', filename='prey-14-mind-game_VXQ7K9Vx.mp3') }}"></audio>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const audio = document.getElementById('music-player');
+    const toggle = document.getElementById('music-toggle');
+    if(!audio || !toggle) return;
+    let isPlaying = false;
+    let savedTime = 0;
+    const isTimerPage = window.location.pathname === '/timer';
+    
+    // Load saved state and time
+    const storedTime = localStorage.getItem('pulse_music_time');
+    const storedState = localStorage.getItem('pulse_music_enabled');
+    // Check if music was explicitly disabled by user
+    const wasDisabled = storedState === 'false';
+    audio.volume = 0.5;
+    
+    // Check navigation type to determine if this is a page refresh or navigation
+    const navEntry = performance.getEntriesByType('navigation')[0];
+    const isPageRefresh = navEntry && (navEntry.type === 'reload' || navEntry.type === 'navigate');
+    const wasNavigated = sessionStorage.getItem('pulse_navigated');
+    
+    // If page was refreshed (not navigated from another page), reset music
+    if (isPageRefresh && !wasNavigated) {
+        // Page refresh - start music from beginning (only if not disabled by user)
+        if (!wasDisabled) {
+            audio.currentTime = 0;
+            savedTime = 0;
+            localStorage.removeItem('pulse_music_time');
+        } else {
+            // Music was disabled - keep it disabled, don't reset time
+            savedTime = storedTime ? parseFloat(storedTime) : 0;
+            audio.currentTime = savedTime;
+        }
+        sessionStorage.setItem('pulse_navigated', 'true');
+    } else {
+        // Navigation between pages - continue from saved time
+        savedTime = storedTime ? parseFloat(storedTime) : 0;
+        audio.currentTime = savedTime;
+        sessionStorage.setItem('pulse_navigated', 'true');
+    }
+    
+    // Auto-play on all pages except timer (only if music was not disabled by user)
+    if (!isTimerPage && !wasDisabled) {
+        // Try to play music automatically
+        audio.play().then(()=>{
+            isPlaying = true;
+            if(toggle && toggle.querySelector('.music-icon')) {
+                toggle.querySelector('.music-icon').textContent = '🔊';
+            }
+            // Mark as enabled if it plays successfully
+            localStorage.setItem('pulse_music_enabled', 'true');
+        }).catch(()=>{
+            // Auto-play blocked by browser (needs user interaction)
+            // This is normal - user can click to play
+            if(toggle && toggle.querySelector('.music-icon')) {
+                toggle.querySelector('.music-icon').textContent = '🔇';
+            }
+        });
+    } else if (isTimerPage) {
+        // On timer page, pause music (but don't mark as disabled)
+        audio.pause();
+        savedTime = audio.currentTime;
+        isPlaying = false;
+        if(toggle && toggle.querySelector('.music-icon')) {
+            toggle.querySelector('.music-icon').textContent = '🔇';
+        }
+        // Save time when leaving timer page
+        localStorage.setItem('pulse_music_time', savedTime);
+    } else {
+        // Music was disabled by user - don't auto-play
+        audio.pause();
+        isPlaying = false;
+        if(toggle && toggle.querySelector('.music-icon')) {
+            toggle.querySelector('.music-icon').textContent = '🔇';
+        }
+    }
+    
+    toggle.addEventListener('click', function(e){
+        e.preventDefault();
+        if(!isPlaying){
+            audio.volume = 0.5;
+            // Continue from saved time
+            audio.currentTime = savedTime || 0;
+            audio.play().then(()=>{
+                isPlaying = true;
+                toggle.querySelector('.music-icon').textContent = '🔊';
+                localStorage.setItem('pulse_music_enabled', 'true');
+            }).catch(()=>{
+                alert('Разрешите воспроизведение музыки в браузере.');
+            });
+        } else {
+            audio.pause();
+            savedTime = audio.currentTime;
+            isPlaying = false;
+            toggle.querySelector('.music-icon').textContent = '🔇';
+            localStorage.setItem('pulse_music_enabled', 'false');
+            localStorage.setItem('pulse_music_time', savedTime);
+        }
+    });
+    
+    // Save time periodically when playing (for navigation between pages)
+    setInterval(function(){
+        if(isPlaying && audio.currentTime > 0){
+            savedTime = audio.currentTime;
+            // Save to localStorage so music continues between page navigations
+            localStorage.setItem('pulse_music_time', savedTime);
+        }
+    }, 1000);
+    
+    window.addEventListener('beforeunload', function(){
+        // Save current state when leaving page
+        if(isPlaying){
+            savedTime = audio.currentTime;
+            localStorage.setItem('pulse_music_time', savedTime);
+            localStorage.setItem('pulse_music_enabled', 'true');
+        } else {
+            // Only save as disabled if user manually disabled it (not if on timer page)
+            if(!isTimerPage){
+                localStorage.setItem('pulse_music_enabled', 'false');
+            }
+            // Still save time even if paused, so it can resume later
+            if(savedTime > 0){
+                localStorage.setItem('pulse_music_time', savedTime);
+            }
+        }
+        // Mark that we're navigating (not refreshing) - this will be cleared on refresh
+        // We keep it in sessionStorage to distinguish navigation from refresh
+    });
+    
+    // Clear navigation flag on page refresh (F5, Ctrl+R)
+    // This allows us to detect refresh vs navigation
+    window.addEventListener('pageshow', function(event) {
+        // If page was loaded from cache (back/forward), keep navigation flag
+        // If page was loaded fresh (refresh), clear it
+        if (event.persisted) {
+            // Page loaded from cache (back/forward navigation)
+            // Keep navigation flag so splash doesn't show
+        } else {
+            // Check if this is a refresh by looking at navigation type
+            const navEntry = performance.getEntriesByType('navigation')[0];
+            if (navEntry && navEntry.type === 'reload') {
+                // This is a refresh - clear navigation flag so splash shows
+                sessionStorage.removeItem('pulse_navigated');
+            }
+        }
+    });
+    
+    // Profile modal
+    const profileToggle = document.getElementById('profile-toggle');
+    const profileModal = document.getElementById('profile-modal');
+    const profileClose = document.getElementById('profile-close');
+    const profileBackdrop = document.getElementById('profile-backdrop');
+    
+    function loadProfileData() {
+        const playerName = localStorage.getItem('pulse_player_name') || 'Не зарегистрирован';
+        const telegramId = localStorage.getItem('pulse_telegram_id') || '';
+        const profileNameEl = document.getElementById('profile-name');
+        const profileTelegramEl = document.getElementById('profile-telegram');
+        
+        if (profileNameEl) profileNameEl.textContent = playerName;
+        if (profileTelegramEl) profileTelegramEl.textContent = telegramId ? '@' + telegramId : 'Не указан';
+    }
+    
+    // Telegram Login Widget
+    function initTelegramWidget() {
+        const container = document.getElementById('telegram-widget-container');
+        if (!container) return;
+        
+        // Remove existing widget if any
+        const existingScript = document.querySelector('script[data-telegram-login]');
+        if (existingScript) {
+            existingScript.remove();
+        }
+        
+        // Create new widget script
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://telegram.org/js/telegram-widget.js?22';
+        script.setAttribute('data-telegram-login', 'Chromosome47bot');
+        script.setAttribute('data-size', 'large');
+        script.setAttribute('data-radius', '20');
+        script.setAttribute('data-onauth', 'onTelegramAuth');
+        script.setAttribute('data-request-access', 'write');
+        
+        container.appendChild(script);
+    }
+    
+    // Telegram auth callback
+    window.onTelegramAuth = function(user) {
+        const playerName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+        const telegramUsername = user.username || '';
+        const telegramId = user.id.toString();
+        
+        localStorage.setItem('pulse_player_name', playerName);
+        localStorage.setItem('pulse_telegram_id', telegramId);
+        if (telegramUsername) {
+            localStorage.setItem('pulse_telegram_username', telegramUsername);
+        }
+        
+        loadProfileData();
+        alert('Регистрация через Telegram выполнена!\n\nИмя: ' + playerName + '\nTelegram ID: ' + telegramId + (telegramUsername ? '\nUsername: @' + telegramUsername : ''));
+        
+        const modal = document.getElementById('profile-modal');
+        const backdrop = document.getElementById('profile-backdrop');
+        if (modal) modal.classList.remove('active');
+        if (backdrop) backdrop.classList.remove('active');
+    };
+    
+    if (profileToggle && profileModal) {
+        profileToggle.addEventListener('click', function() {
+            profileModal.classList.add('active');
+            profileBackdrop.classList.add('active');
+            loadProfileData();
+            // Initialize Telegram widget when modal opens
+            setTimeout(initTelegramWidget, 100);
+        });
+        
+        if (profileClose) {
+            profileClose.addEventListener('click', function() {
+                profileModal.classList.remove('active');
+                profileBackdrop.classList.remove('active');
+            });
+        }
+        
+        if (profileBackdrop) {
+            profileBackdrop.addEventListener('click', function() {
+                profileModal.classList.remove('active');
+                profileBackdrop.classList.remove('active');
+            });
+        }
+    }
+    
+    // Manual registration
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'manual-register-btn') {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const playerName = prompt('Введите ваше имя:');
+            if (!playerName) return;
+            
+            const telegramUsername = prompt('Введите ваш Telegram username (например, @username):');
+            if (!telegramUsername) {
+                alert('Telegram username обязателен');
+                return;
+            }
+            
+            const cleanTelegram = telegramUsername.replace('@', '').trim();
+            localStorage.setItem('pulse_player_name', playerName);
+            localStorage.setItem('pulse_telegram_id', cleanTelegram);
+            localStorage.setItem('pulse_telegram_username', cleanTelegram);
+            
+            loadProfileData();
+            alert('Регистрация выполнена!');
+            const modal = document.getElementById('profile-modal');
+            const backdrop = document.getElementById('profile-backdrop');
+            if (modal) modal.classList.remove('active');
+            if (backdrop) backdrop.classList.remove('active');
+        }
+    });
+});
+</script>
+
+<!-- Profile Modal -->
+<div id="profile-backdrop" class="profile-backdrop"></div>
+<div id="profile-modal" class="profile-modal">
+    <div class="profile-modal-content">
+        <div class="profile-modal-header">
+            <h2 class="profile-modal-title">Личный кабинет</h2>
+            <button class="profile-modal-close" id="profile-close">&times;</button>
+        </div>
+        <div class="profile-modal-body">
+            <div class="profile-info">
+                <div class="profile-info-item">
+                    <span class="profile-info-label">Имя:</span>
+                    <span class="profile-info-value" id="profile-name">Загрузка...</span>
+                </div>
+                <div class="profile-info-item">
+                    <span class="profile-info-label">Telegram:</span>
+                    <span class="profile-info-value" id="profile-telegram">Загрузка...</span>
+                </div>
+            </div>
+            <div class="profile-actions">
+                <div id="telegram-widget-container" style="margin-bottom: 1.5vh;"></div>
+                <button class="profile-action-btn" id="manual-register-btn">
+                    ✏️ Регистрация вручную
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.profile-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.profile-backdrop.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.profile-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.profile-modal.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.profile-modal-content {
+    background: radial-gradient(circle at top, #171722, #050510 70%);
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 3vh 3vw;
+    max-width: 500px;
+    width: 90vw;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.95);
+}
+
+.profile-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3vh;
+    padding-bottom: 2vh;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profile-modal-title {
+    font-size: 3vh;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #ff4b5c;
+    text-shadow: 0 0 20px rgba(255, 75, 92, 0.6);
+}
+
+.profile-modal-close {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 3vh;
+    cursor: pointer;
+    padding: 0;
+    width: 3vh;
+    height: 3vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.profile-modal-close:hover {
+    transform: scale(1.2);
+    color: #ff4b5c;
+}
+
+.profile-info {
+    margin-bottom: 3vh;
+}
+
+.profile-info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5vh 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.profile-info-label {
+    font-size: 1.6vh;
+    color: #9ba1b6;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.profile-info-value {
+    font-size: 1.8vh;
+    color: #fff;
+    font-weight: 600;
+}
+
+.profile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5vh;
+}
+
+.profile-action-btn {
+    padding: 1.5vh 2vw;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(8, 8, 16, 0.9);
+    color: #fff;
+    font-size: 1.6vh;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.profile-action-btn:hover {
+    border-color: #ff4b5c;
+    background: rgba(255, 46, 59, 0.15);
+    box-shadow: 0 0 20px rgba(255, 46, 59, 0.4);
+    transform: translateY(-2px);
+}
+
+.profile-action-btn:active {
+    transform: translateY(0);
+}
+
+.profile-action-btn-primary {
+    background: rgba(255, 46, 59, 0.2);
+    border-color: #ff4b5c;
+}
+
+.profile-action-btn-primary:hover {
+    background: rgba(255, 46, 59, 0.3);
+    box-shadow: 0 0 30px rgba(255, 46, 59, 0.6);
+}
+</style>

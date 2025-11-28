@@ -1,0 +1,465 @@
+{% include 'header.html' %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>PULSE | Контакты</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        :root {
+            --bg-top: #050509;
+            --bg-bottom: #020514;
+            --accent: #ff2e3b;
+            --accent-soft: #ff4b5c;
+            --accent-dim: rgba(255, 46, 59, 0.35);
+            --text: #ffffff;
+            --text-muted: #9ba1b6;
+            --glow-red: 0 0 60px rgba(255, 46, 59, 0.8);
+            --glow-strong: 0 0 100px rgba(255, 46, 59, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text);
+            background: radial-gradient(circle at top, #1a1014 0, #050509 35%, #020514 100%);
+            min-height: 100vh;
+        }
+
+        /* Splash Screen */
+        .splash-screen {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, #050509 0%, #020514 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 0.8s ease-out;
+        }
+
+        .splash-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .logo-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4vh;
+        }
+
+        .logo-splash {
+            width: 25vh;
+            height: 25vh;
+            object-fit: contain;
+            filter: drop-shadow(var(--glow-strong));
+            animation: logoPulse 2s ease-in-out infinite;
+            transform-origin: center;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 60px rgba(255, 46, 59, 0.8));
+            }
+            50% {
+                transform: scale(1.1);
+                filter: drop-shadow(0 0 100px rgba(255, 46, 59, 1));
+            }
+        }
+
+        .progress-bar-container {
+            width: 40vw;
+            max-width: 500px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 4vh;
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.3);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff2e3b 0%, #ff4b5c 50%, #ff6b7a 100%);
+            border-radius: 10px;
+            width: 0%;
+            animation: progressFill 2.5s ease-out forwards;
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.8), 0 0 40px rgba(255, 46, 59, 0.5);
+        }
+
+        @keyframes progressFill {
+            0% {
+                width: 0%;
+            }
+            100% {
+                width: 100%;
+            }
+        }
+
+        .particles {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--accent-soft);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-soft);
+            animation: particleFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes particleFloat {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+                opacity: 0.6;
+            }
+            50% {
+                transform: translate(var(--tx, 50px), var(--ty, -50px)) scale(1.5);
+                opacity: 1;
+            }
+        }
+
+        .splash-title {
+            font-size: 6vh;
+            font-weight: 900;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--accent-soft);
+            text-shadow: 0 0 60px rgba(255, 46, 59, 0.8);
+            animation: titleGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% {
+                text-shadow: 0 0 40px rgba(255, 46, 59, 0.8);
+            }
+            50% {
+                text-shadow: 0 0 80px rgba(255, 46, 59, 1), 0 0 120px rgba(255, 46, 59, 0.6);
+            }
+        }
+
+        .nav-btn {
+            padding: 1.2vh 2.5vw;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(8, 8, 16, 0.9);
+            color: var(--text);
+            font-size: 1.8vh;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover {
+            border-color: var(--accent-soft);
+            background: rgba(255, 46, 59, 0.15);
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.4);
+        }
+
+        .container {
+            width: 100%;
+            min-height: 80vh;
+            padding: 6vh 4vw 4vh 4vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4vh;
+        }
+
+        .contacts-card {
+            background: radial-gradient(circle at top, #171722, #050510 70%);
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 4vh 4vw;
+            max-width: 1200px;
+            width: 100%;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.95);
+            display: flex;
+            gap: 4vw;
+            align-items: center;
+        }
+
+        .contacts-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2vh;
+        }
+
+        .contacts-image-wrapper {
+            flex: 1;
+            position: relative;
+            max-width: 500px;
+            transform: translateZ(0);
+            will-change: transform;
+        }
+
+        .contacts-image {
+            width: 100%;
+            height: auto;
+            border-radius: 16px;
+            object-fit: cover;
+            position: relative;
+            z-index: 1;
+            transform: translateZ(0);
+            will-change: transform;
+        }
+
+        .cyber-frame {
+            position: absolute;
+            inset: -8px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, 
+                rgba(0, 255, 255, 0.3) 0%,
+                rgba(0, 150, 255, 0.4) 25%,
+                rgba(100, 200, 255, 0.3) 50%,
+                rgba(0, 150, 255, 0.4) 75%,
+                rgba(0, 255, 255, 0.3) 100%);
+            background-size: 200% 200%;
+            animation: cyberGlow 3s ease-in-out infinite;
+            box-shadow: 
+                0 0 20px rgba(0, 255, 255, 0.6),
+                0 0 40px rgba(0, 150, 255, 0.4),
+                0 0 60px rgba(100, 200, 255, 0.3),
+                inset 0 0 20px rgba(0, 255, 255, 0.2);
+            z-index: 0;
+            will-change: background-position, box-shadow;
+            transform: translateZ(0);
+        }
+
+        .cyber-frame::before {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            border-radius: 18px;
+            background: radial-gradient(circle at top, #050510, #0a0a1a);
+            z-index: -1;
+            transform: translateZ(0);
+        }
+
+        @keyframes cyberGlow {
+            0%, 100% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .contacts-title {
+            font-size: 4vh;
+            font-weight: 900;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent-soft);
+            text-align: center;
+            margin-bottom: 4vh;
+            text-shadow: 0 0 40px rgba(255, 46, 59, 0.6);
+        }
+
+        .contact-item {
+            display: flex;
+            flex-direction: column;
+            gap: 1vh;
+            margin-bottom: 3vh;
+            padding: 2vh 2vw;
+            background: rgba(8, 8, 16, 0.5);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        .contact-item:hover {
+            border-color: var(--accent-dim);
+            box-shadow: 0 0 20px rgba(255, 46, 59, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .contact-label {
+            font-size: 1.6vh;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .contact-value {
+            font-size: 2.2vh;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .contact-link {
+            color: var(--accent-soft);
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .contact-link:hover {
+            color: var(--accent);
+            text-shadow: 0 0 10px rgba(255, 46, 59, 0.6);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 4vh 3vw;
+            }
+
+            .contacts-card {
+                padding: 3vh 3vw;
+                flex-direction: column;
+            }
+
+            .contacts-title {
+                font-size: 3vh;
+            }
+
+            .contacts-image-wrapper {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div class="splash-screen" id="splash">
+        <div class="particles" id="particles"></div>
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='pulse_logo_transparent.png') }}" class="logo-splash" alt="PULSE">
+            <div class="splash-title">PULSE | CLUB</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="main-content" style="display: none;">
+        <div class="contacts-card">
+            <div class="contacts-info">
+                <h1 class="contacts-title">Контакты</h1>
+                
+                <div class="contact-item">
+                    <div class="contact-label">Телеграм</div>
+                    <div class="contact-value">
+                        <a href="https://t.me/poker_spbb" class="contact-link" target="_blank">@poker_spbb</a>
+                    </div>
+                </div>
+
+                <div class="contact-item">
+                    <div class="contact-label">Адрес</div>
+                    <div class="contact-value">
+                        <a href="https://yandex.ru/maps/-/CLW~qQKs" class="contact-link" target="_blank">Санкт-Петербург, Восстания 15с</a>
+                    </div>
+                </div>
+
+                <div class="contact-item">
+                    <div class="contact-label">Время работы</div>
+                    <div class="contact-value">Ежедневно с 18:00 до 02:00</div>
+                </div>
+
+                <div class="contact-item">
+                    <div class="contact-label">Email</div>
+                    <div class="contact-value">
+                        <a href="mailto:info@pulseclub.ru" class="contact-link">info@pulseclub.ru</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="contacts-image-wrapper">
+                <div class="cyber-frame"></div>
+                <img src="{{ url_for('static', filename='1NfSJKb_P2TDCNgGzeQLV9VqFB3YXKqDNJcK9gmaIq_DB5iIgkoDfU-rVoAgrshavGIWa92DHnzZDfqPd3jU2wnX.jpg') }}" alt="PULSE CLUB" class="contacts-image">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Splash screen logic - show only on hard reload, not on navigation
+            const mainContent = document.getElementById("main-content");
+            const splashEl = document.getElementById("splash");
+            
+            if (!splashEl) {
+                // No splash element, show content immediately
+                if (mainContent) {
+                    mainContent.style.display = 'flex';
+                }
+            } else {
+                // Check if this is a hard reload (F5, Ctrl+R) or navigation
+                const navEntry = performance.getEntriesByType('navigation')[0];
+                const isHardReload = navEntry && navEntry.type === 'reload';
+                
+                // Show splash only on hard reload, not on navigation between pages
+                if (isHardReload) {
+                    // Hard reload - show splash
+                    if (mainContent) {
+                        mainContent.style.display = 'none';
+                    }
+                    setTimeout(function(){
+                        splashEl.classList.add('hidden');
+                        if (mainContent) {
+                            mainContent.style.display = 'flex';
+                        }
+                    }, 2800);
+                    
+                    // Create particles
+                    function createParticles() {
+                        const container = document.getElementById("particles");
+                        if (!container) return;
+                        const count = 30;
+                        
+                        for (let i = 0; i < count; i++) {
+                            const particle = document.createElement("div");
+                            particle.className = "particle";
+                            const angle = (Math.PI * 2 * i) / count;
+                            const radius = 200 + Math.random() * 100;
+                            const x = Math.cos(angle) * radius;
+                            const y = Math.sin(angle) * radius;
+                            particle.style.left = `calc(50% + ${x}px)`;
+                            particle.style.top = `calc(50% + ${y}px)`;
+                            particle.style.setProperty("--tx", `${Math.cos(angle) * 30}px`);
+                            particle.style.setProperty("--ty", `${Math.sin(angle) * 30}px`);
+                            particle.style.animationDelay = `${Math.random() * 2}s`;
+                            container.appendChild(particle);
+                        }
+                    }
+                    
+                    createParticles();
+                } else {
+                    // Navigation from another page - hide splash immediately
+                    splashEl.classList.add('hidden');
+                    if (mainContent) {
+                        mainContent.style.display = 'flex';
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+
