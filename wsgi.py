@@ -1,5 +1,5 @@
 """
-WSGI entry point for Amvera deployment
+WSGI entry point for Railway deployment
 """
 import os
 import sys
