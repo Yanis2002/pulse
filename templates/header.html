@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const storedState = localStorage.getItem('pulse_music_enabled');
     // Check if music was explicitly disabled by user
     const wasDisabled = storedState === 'false';
-    audio.volume = 0.5;
+    audio.volume = 0.25; // 25% volume (50% quieter than before)
     
     // Check navigation type to determine if this is a page refresh or navigation
     const navEntry = performance.getEntriesByType('navigation')[0];
@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', function(){
     toggle.addEventListener('click', function(e){
         e.preventDefault();
         if(!isPlaying){
-            audio.volume = 0.5;
+            audio.volume = 0.25; // 25% volume
             // Continue from saved time
             audio.currentTime = savedTime || 0;
             audio.play().then(()=>{
@@ -361,6 +361,7 @@ document.addEventListener('DOMContentLoaded', function(){
         script.setAttribute('data-radius', '20');
         script.setAttribute('data-onauth', 'onTelegramAuth');
         script.setAttribute('data-request-access', 'write');
+        script.setAttribute('data-userpic', 'true');
         
         container.appendChild(script);
     }
@@ -406,7 +407,18 @@ document.addEventListener('DOMContentLoaded', function(){
         });
         
         loadProfileData();
-        alert('Регистрация через Telegram выполнена!\n\nИмя: ' + playerName + '\nTelegram ID: ' + telegramId + (telegramUsername ? '\nUsername: @' + telegramUsername : ''));
+        
+        // Show success message
+        const successMsg = document.createElement('div');
+        successMsg.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0, 200, 0, 0.9); color: white; padding: 2vh 3vw; border-radius: 12px; z-index: 10000; box-shadow: 0 0 30px rgba(0, 200, 0, 0.5); font-size: 1.6vh; text-align: center;';
+        successMsg.innerHTML = '✅ <strong>Регистрация успешна!</strong><br>Имя: ' + playerName + (telegramUsername ? '<br>Telegram: @' + telegramUsername : '');
+        document.body.appendChild(successMsg);
+        
+        setTimeout(() => {
+            successMsg.style.opacity = '0';
+            successMsg.style.transition = 'opacity 0.5s';
+            setTimeout(() => successMsg.remove(), 500);
+        }, 3000);
         
         const modal = document.getElementById('profile-modal');
         const backdrop = document.getElementById('profile-backdrop');
@@ -517,7 +529,16 @@ document.addEventListener('DOMContentLoaded', function(){
                 </div>
             </div>
             <div class="profile-actions">
-                <div id="telegram-widget-container" style="margin-bottom: 1.5vh;"></div>
+                <div class="telegram-register-section">
+                    <div class="telegram-register-title">🔐 Регистрация через Telegram</div>
+                    <div class="telegram-register-description">
+                        Нажмите кнопку ниже, чтобы войти через Telegram и автоматически зарегистрироваться в системе
+                    </div>
+                    <div id="telegram-widget-container" class="telegram-widget-wrapper"></div>
+                </div>
+                <div class="profile-actions-divider">
+                    <span>или</span>
+                </div>
                 <button class="profile-action-btn" id="manual-register-btn">
                     ✏️ Регистрация вручную
                 </button>
@@ -671,5 +692,67 @@ document.addEventListener('DOMContentLoaded', function(){
 .profile-action-btn-primary:hover {
     background: rgba(255, 46, 59, 0.3);
     box-shadow: 0 0 30px rgba(255, 46, 59, 0.6);
+}
+
+.telegram-register-section {
+    margin-bottom: 2vh;
+    padding: 2vh 2vw;
+    background: rgba(0, 100, 200, 0.05);
+    border: 1px solid rgba(0, 150, 255, 0.2);
+    border-radius: 12px;
+}
+
+.telegram-register-title {
+    font-size: 2vh;
+    font-weight: 700;
+    color: #4fc3f7;
+    text-align: center;
+    margin-bottom: 1vh;
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+}
+
+.telegram-register-description {
+    font-size: 1.4vh;
+    color: #9ba1b6;
+    text-align: center;
+    margin-bottom: 1.5vh;
+    line-height: 1.5;
+}
+
+.telegram-widget-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 50px;
+    padding: 1vh 0;
+}
+
+.telegram-widget-wrapper iframe {
+    border-radius: 12px !important;
+    box-shadow: 0 0 20px rgba(0, 150, 255, 0.3) !important;
+}
+
+.profile-actions-divider {
+    display: flex;
+    align-items: center;
+    margin: 2vh 0;
+    text-align: center;
+}
+
+.profile-actions-divider::before,
+.profile-actions-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.profile-actions-divider span {
+    padding: 0 2vw;
+    color: #9ba1b6;
+    font-size: 1.4vh;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
 }
 </style>
