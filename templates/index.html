@@ -9,7 +9,24 @@
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='wWGLOg19ZFvwEJBVwuPYHrXBoXPbUIOsG4Hg8pN2AP4PlPnOKX9GD1__v_3YfD-mO-YRLq_1uLN9I6nNYiCX_Rjb.ico') }}">
 
     <script>
-        window.PULSE_TIMER_IS_ADMIN  = {{ 'true' if is_admin else 'false' }};
+        // Check admin status dynamically based on Telegram username
+        let isAdminValue = {{ 'true' if is_admin else 'false' }};
+        const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+        if (telegramUsername) {
+            fetch('/api/telegram/check-admin?username=' + encodeURIComponent(telegramUsername))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ok && data.is_admin) {
+                        isAdminValue = true;
+                    }
+                    window.PULSE_TIMER_IS_ADMIN = isAdminValue;
+                })
+                .catch(() => {
+                    window.PULSE_TIMER_IS_ADMIN = isAdminValue;
+                });
+        } else {
+            window.PULSE_TIMER_IS_ADMIN = isAdminValue;
+        }
         window.PULSE_TIMER_ADMIN_TOKEN = "{{ admin_token }}";
         let breaksInitializedFromServer = false;
     </script>

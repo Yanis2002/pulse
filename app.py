@@ -24,6 +24,10 @@ except ImportError:
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "local-admin")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8574583723:AAHGnyANIA7z_7yPftV1q_HBoYWH4XkMVnI")
 
+# List of Telegram usernames (without @) that have admin rights
+ADMIN_TELEGRAM_USERNAMES = os.environ.get("ADMIN_TELEGRAM_USERNAMES", "").split(",")
+ADMIN_TELEGRAM_USERNAMES = [u.strip().lower().replace("@", "") for u in ADMIN_TELEGRAM_USERNAMES if u.strip()]
+
 BASE_LEVELS = [
     {"sb": 100, "bb": 200, "minutes": 12, "breakMinutes": 0},
     {"sb": 200, "bb": 400, "minutes": 12, "breakMinutes": 0},
@@ -431,12 +435,16 @@ def index():
 @app.route("/timer")
 def timer():
     """Timer page."""
-    return render_template("index.html", is_admin=True, admin_token=ADMIN_TOKEN)
+    telegram_username = request.args.get("telegram_username") or request.headers.get("X-Telegram-Username")
+    is_admin = check_is_admin(telegram_username)
+    return render_template("index.html", is_admin=is_admin, admin_token=ADMIN_TOKEN)
 
 
 @app.route("/rating")
 def rating():
-    return render_template("rating.html", is_admin=True, admin_token=ADMIN_TOKEN)
+    telegram_username = request.args.get("telegram_username") or request.headers.get("X-Telegram-Username")
+    is_admin = check_is_admin(telegram_username)
+    return render_template("rating.html", is_admin=is_admin, admin_token=ADMIN_TOKEN)
 
 @app.route("/contacts")
 def contacts():

@@ -449,101 +449,6 @@ document.addEventListener('DOMContentLoaded', function(){
         }
     }
     
-    // Manual registration
-    document.addEventListener('click', function(e) {
-        if (e.target && e.target.id === 'manual-register-btn') {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const playerName = prompt('Введите ваше имя:');
-            if (!playerName || !playerName.trim()) {
-                return;
-            }
-            
-            const telegramUsername = prompt('Введите ваш Telegram username (например, @username):');
-            if (!telegramUsername || !telegramUsername.trim()) {
-                alert('Telegram username обязателен для регистрации');
-                return;
-            }
-            
-            const cleanTelegram = telegramUsername.replace('@', '').trim();
-            if (!cleanTelegram) {
-                alert('Некорректный Telegram username');
-                return;
-            }
-            
-            // Show loading state
-            const btn = e.target;
-            const originalText = btn.textContent;
-            btn.textContent = '⏳ Регистрация...';
-            btn.disabled = true;
-            
-            localStorage.setItem('pulse_player_name', playerName.trim());
-            localStorage.setItem('pulse_telegram_id', cleanTelegram);
-            localStorage.setItem('pulse_telegram_username', cleanTelegram);
-            
-            // Save user to database for mailing list (manual registration)
-            fetch('/api/telegram/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    telegram_id: cleanTelegram,
-                    first_name: playerName.split(' ')[0] || playerName,
-                    last_name: playerName.split(' ').slice(1).join(' ') || '',
-                    username: cleanTelegram,
-                    language_code: navigator.language || 'ru',
-                    is_bot: false,
-                    registration_source: 'manual'
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.ok) {
-                    console.log('User registered for mailing list');
-                    
-                    // Close modal
-                    const modal = document.getElementById('profile-modal');
-                    const backdrop = document.getElementById('profile-backdrop');
-                    if (modal) modal.classList.remove('active');
-                    if (backdrop) backdrop.classList.remove('active');
-                    
-                    // Check if offer needs to be accepted
-                    if (!data.offer_accepted) {
-                        const offerModal = document.getElementById('offer-modal') || document.getElementById('offer-modal-header');
-                        if (offerModal) {
-                            offerModal.style.display = 'block';
-                            offerModal.classList.add('active');
-                        } else {
-                            window.location.href = '/';
-                        }
-                    } else {
-                        alert('✅ Регистрация выполнена!\n\nДля записи на события необходимо принять публичную оферту и установить игровой никнейм.');
-                        loadProfileData();
-                        if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
-                            window.location.reload();
-                        }
-                    }
-                } else {
-                    throw new Error(data.error || 'Unknown error');
-                }
-            })
-            .catch(error => {
-                console.error('Error sending user data:', error);
-                alert('Ошибка при регистрации: ' + error.message + '\n\nПожалуйста, попробуйте еще раз.');
-            })
-            .finally(() => {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            });
-        }
-    });
 });
 </script>
 
@@ -573,12 +478,6 @@ document.addEventListener('DOMContentLoaded', function(){
                     </div>
                     <div id="telegram-widget-container"></div>
                 </div>
-                <div style="text-align: center; margin: 1.5vh 0; color: var(--text-muted); font-size: 1.2vh;">
-                    или
-                </div>
-                <button class="profile-action-btn" id="manual-register-btn">
-                    ✏️ Регистрация вручную
-                </button>
             </div>
         </div>
     </div>
