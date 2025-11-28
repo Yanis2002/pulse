@@ -221,6 +221,8 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // Auto-play on all pages except timer (only if music was not disabled by user)
     if (!isTimerPage && !wasDisabled) {
+        // Ensure volume is 50% before playing
+        audio.volume = 0.5;
         // Try to play music automatically
         audio.play().then(()=>{
             isPlaying = true;
