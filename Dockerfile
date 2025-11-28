@@ -21,6 +21,6 @@ EXPOSE 8000
 # Set environment variable
 ENV PORT=8000
 
-# Run gunicorn with eventlet
-CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:8000", "wsgi:application"]
+# Run gunicorn with eventlet (with timeout and logging)
+CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:8000", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "debug", "wsgi:application"]
 
