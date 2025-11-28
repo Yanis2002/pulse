@@ -1396,29 +1396,53 @@ def api_telegram_webhook():
 @app.route("/api/telegram/setup-webhook", methods=["POST"])
 def api_setup_webhook():
     """Setup Telegram webhook (admin only)."""
-    data = request.get_json() or {}
-    token = data.get("token", "")
-    webhook_url = data.get("webhook_url", "").strip()
-    
-    if token != ADMIN_TOKEN:
-        return jsonify({"ok": False, "error": "unauthorized"}), 401
-    
-    if not TELEGRAM_BOT_TOKEN:
-        return jsonify({"ok": False, "error": "bot token not configured"}), 500
-    
-    if not webhook_url:
-        return jsonify({"ok": False, "error": "webhook_url required"}), 400
-    
     try:
+        data = request.get_json() or {}
+        token = data.get("token", "")
+        webhook_url = data.get("webhook_url", "").strip()
+        
+        print(f"Setup webhook request: token={bool(token)}, webhook_url={webhook_url}")
+        
+        if token != ADMIN_TOKEN:
+            print(f"Unauthorized: token mismatch")
+            return jsonify({"ok": False, "error": "unauthorized"}), 401
+        
+        if not TELEGRAM_BOT_TOKEN:
+            print("TELEGRAM_BOT_TOKEN not configured")
+            return jsonify({"ok": False, "error": "bot token not configured"}), 500
+        
+        if not webhook_url:
+            print("webhook_url is empty")
+            return jsonify({"ok": False, "error": "webhook_url required"}), 400
+        
         # Telegram API requires GET request with URL parameter
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook"
         params = {"url": webhook_url}
-        response = requests.get(url, params=params, timeout=10)
-        result = response.json()
-        print(f"Telegram setWebhook response: {result}")
-        return jsonify({"ok": result.get("ok", False), "result": result})
+        
+        print(f"Calling Telegram API: {url} with params: {params}")
+        
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            print(f"Telegram API response status: {response.status_code}")
+            print(f"Telegram API response text: {response.text}")
+            
+            result = response.json()
+            print(f"Telegram setWebhook response: {result}")
+            
+            if result.get("ok"):
+                return jsonify({"ok": True, "result": result, "message": "Webhook configured successfully"})
+            else:
+                error_desc = result.get("description", "Unknown error")
+                return jsonify({"ok": False, "error": error_desc, "result": result}), 400
+        except requests.exceptions.RequestException as e:
+            print(f"Request exception: {e}")
+            return jsonify({"ok": False, "error": f"Network error: {str(e)}"}), 500
+        except ValueError as e:
+            print(f"JSON decode error: {e}, response text: {response.text if 'response' in locals() else 'N/A'}")
+            return jsonify({"ok": False, "error": f"Invalid response from Telegram: {str(e)}"}), 500
+            
     except Exception as e:
-        print(f"Error setting webhook: {e}")
+        print(f"Unexpected error in setup-webhook: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
