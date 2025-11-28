@@ -691,14 +691,16 @@ def api_get_events():
     try:
         with get_db() as db:
             events = db.execute("""
-                SELECT e.*, 
+                SELECT e.id, e.date, e.time, e.event_type, e.description, 
+                       COALESCE(e.max_places, 20) as max_places,
+                       COALESCE(e.price, 1000) as price,
                        COALESCE(GROUP_CONCAT(er.player_name, '|'), '') as registered_players,
                        COALESCE(GROUP_CONCAT(er.telegram_username, '|'), '') as telegram_usernames,
                        COUNT(er.id) as registration_count
                 FROM events e
                 LEFT JOIN event_registrations er ON e.id = er.event_id
                 WHERE e.date >= ? AND e.date <= ?
-                GROUP BY e.id
+                GROUP BY e.id, e.date, e.time, e.event_type, e.description, e.max_places, e.price
                 ORDER BY e.date, e.time
             """, (start_date, end_date)).fetchall()
             
@@ -725,14 +727,33 @@ def api_get_events():
                     except Exception:
                         pass
                 
+                # Get max_places and price, defaulting to 20 and 1000 if None
+                max_places = event.get("max_places")
+                if max_places is None:
+                    max_places = 20
+                else:
+                    try:
+                        max_places = int(max_places)
+                    except (ValueError, TypeError):
+                        max_places = 20
+                
+                price = event.get("price")
+                if price is None:
+                    price = 1000
+                else:
+                    try:
+                        price = int(price)
+                    except (ValueError, TypeError):
+                        price = 1000
+                
                 result.append({
                     "id": event["id"],
                     "date": event["date"],
                     "time": event["time"],
                     "event_type": event["event_type"],
                     "description": event["description"] or "",
-                    "max_places": event.get("max_places", 20),
-                    "price": event.get("price", 1000),
+                    "max_places": max_places,
+                    "price": price,
                     "registered": registered,
                     "telegram_users": telegram_users,
                     "registration_count": event["registration_count"] or 0,
@@ -742,6 +763,8 @@ def api_get_events():
             return jsonify({"ok": True, "events": result})
     except Exception as e:
         import traceback
+        import logging
+        logging.error(f"Error in api_get_events: {str(e)}\n{traceback.format_exc()}")
         return jsonify({"ok": False, "error": str(e), "traceback": traceback.format_exc()}), 500
 
 
