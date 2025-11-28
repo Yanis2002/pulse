@@ -10,7 +10,7 @@ build:
     - pip install -r requirements.txt
 
 run:
-  command: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:8000 wsgi:application
+  command: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT wsgi:application
 
 env:
   PORT: 8000

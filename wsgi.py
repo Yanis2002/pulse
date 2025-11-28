@@ -9,8 +9,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from app import app, socketio
 
-# Export app for WSGI servers
-application = app
+# Export app wrapped with SocketIO for WSGI servers (gunicorn with eventlet)
+application = socketio.WSGIApp(socketio, app)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
