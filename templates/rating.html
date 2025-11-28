@@ -1040,8 +1040,12 @@ $(document).ready(function() {
                     IS_ADMIN = true;
                     // Show admin panel if user is admin
                     const adminPanel = document.getElementById('admin-panel');
+                    const toggleAdminBtn = document.getElementById('toggle-admin');
                     if (adminPanel) {
                         adminPanel.style.display = 'block';
+                    }
+                    if (toggleAdminBtn) {
+                        toggleAdminBtn.style.display = 'block';
                     }
                 }
             } catch (e) {
