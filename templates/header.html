@@ -358,6 +358,16 @@ document.addEventListener('DOMContentLoaded', function(){
         // Clear container
         container.innerHTML = '';
         
+        // Check current domain
+        const currentDomain = window.location.hostname;
+        const isLocalhost = currentDomain === 'localhost' || currentDomain === '127.0.0.1' || currentDomain.startsWith('192.168.');
+        
+        // Show domain registration notice if needed
+        if (isLocalhost) {
+            container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--text-muted); font-size: 1.3vh; line-height: 1.6;">⚠️ Виджет Telegram работает только на зарегистрированном домене.<br><br>Для локальной разработки используйте:<br><code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">localhost</code><br><br>Или зарегистрируйте домен через @BotFather:<br><code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">/setdomain</code></div>';
+            return;
+        }
+        
         // Create widget script exactly as in Telegram documentation
         const script = document.createElement('script');
         script.async = true;
@@ -367,6 +377,22 @@ document.addEventListener('DOMContentLoaded', function(){
         script.setAttribute('data-radius', '20');
         script.setAttribute('data-onauth', 'onTelegramAuth');
         script.setAttribute('data-request-access', 'write');
+        
+        // Handle widget errors
+        script.onerror = function() {
+            container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--accent-soft); font-size: 1.3vh; line-height: 1.6;">❌ Ошибка загрузки виджета Telegram.<br><br>Убедитесь, что домен зарегистрирован через @BotFather:<br><code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">/setdomain</code><br><br>Текущий домен: <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">' + currentDomain + '</code></div>';
+        };
+        
+        // Check for domain errors after widget loads
+        setTimeout(function() {
+            const widgetError = container.querySelector('.tgme_widget_error');
+            if (widgetError) {
+                const errorText = widgetError.textContent || '';
+                if (errorText.includes('domain') || errorText.includes('invalid')) {
+                    container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--accent-soft); font-size: 1.3vh; line-height: 1.6;">⚠️ Домен не зарегистрирован в боте.<br><br>Для регистрации домена:<br>1. Откройте @BotFather в Telegram<br>2. Выберите бота <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">Chromosome47bot</code><br>3. Отправьте команду <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">/setdomain</code><br>4. Укажите домен: <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">' + currentDomain + '</code></div>';
+                }
+            }
+        }, 2000);
         
         container.appendChild(script);
     }
