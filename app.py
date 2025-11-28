@@ -1199,6 +1199,125 @@ def php_proxy():
     return jsonify({"ok": False, "error": "unknown action"})
 
 
+@app.route("/api/telegram/register", methods=["POST"])
+def api_register_telegram_user():
+    """Register Telegram user for mailing list."""
+    data = request.get_json() or {}
+    telegram_id = data.get("telegram_id", "").strip()
+    first_name = data.get("first_name", "").strip()
+    last_name = data.get("last_name", "").strip()
+    username = data.get("username", "").strip()
+    language_code = data.get("language_code", "").strip()
+    is_bot = data.get("is_bot", False)
+    registration_source = data.get("registration_source", "telegram_widget")
+    
+    if not telegram_id or not first_name:
+        return jsonify({"ok": False, "error": "telegram_id and first_name required"}), 400
+    
+    try:
+        with get_db() as db:
+            # Insert or update user (SQLite doesn't support ON CONFLICT DO UPDATE directly, use INSERT OR REPLACE)
+            db.execute("""
+                INSERT OR REPLACE INTO telegram_users 
+                (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, registration_source))
+        
+        return jsonify({"ok": True, "message": "User registered successfully"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/telegram/users", methods=["GET"])
+def api_get_telegram_users():
+    """Get list of registered Telegram users (admin only)."""
+    token = request.args.get("token", "")
+    if token != ADMIN_TOKEN:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    
+    try:
+        with get_db() as db:
+            users = db.execute("""
+                SELECT 
+                    id, telegram_id, first_name, last_name, username, 
+                    language_code, is_bot, registered_at, last_active, registration_source
+                FROM telegram_users
+                ORDER BY registered_at DESC
+            """).fetchall()
+            
+            result = []
+            for user in users:
+                result.append({
+                    "id": user["id"],
+                    "telegram_id": user["telegram_id"],
+                    "first_name": user["first_name"],
+                    "last_name": user["last_name"],
+                    "username": user["username"],
+                    "language_code": user["language_code"],
+                    "is_bot": bool(user["is_bot"]),
+                    "registered_at": user["registered_at"],
+                    "last_active": user["last_active"],
+                    "registration_source": user["registration_source"],
+                    "telegram_link": f"https://t.me/{user['username']}" if user["username"] else f"tg://user?id={user['telegram_id']}"
+                })
+            
+            return jsonify({"ok": True, "users": result, "count": len(result)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/telegram/users/export", methods=["GET"])
+def api_export_telegram_users():
+    """Export Telegram users as CSV (admin only)."""
+    token = request.args.get("token", "")
+    if token != ADMIN_TOKEN:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    
+    try:
+        with get_db() as db:
+            users = db.execute("""
+                SELECT 
+                    telegram_id, first_name, last_name, username, 
+                    language_code, registered_at, last_active
+                FROM telegram_users
+                WHERE is_bot = 0
+                ORDER BY registered_at DESC
+            """).fetchall()
+            
+            import csv
+            import io
+            
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Header
+            writer.writerow(["Telegram ID", "Имя", "Фамилия", "Username", "Язык", "Дата регистрации", "Последняя активность", "Ссылка"])
+            
+            # Data
+            for user in users:
+                username = user["username"] or ""
+                telegram_link = f"https://t.me/{username}" if username else f"tg://user?id={user['telegram_id']}"
+                writer.writerow([
+                    user["telegram_id"],
+                    user["first_name"],
+                    user["last_name"] or "",
+                    username,
+                    user["language_code"] or "",
+                    user["registered_at"],
+                    user["last_active"],
+                    telegram_link
+                ])
+            
+            from flask import Response
+            return Response(
+                output.getvalue(),
+                mimetype="text/csv",
+                headers={"Content-Disposition": "attachment; filename=telegram_users.csv"}
+            )
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 def require_admin(data):
     token = (data or {}).get("token", "")
     if token != ADMIN_TOKEN:
