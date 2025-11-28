@@ -1,6 +1,8 @@
-name: pulse
-runtime: python
-version: 3.11
+meta:
+  environment: python
+  toolchain:
+    name: python
+    version: 3.11
 
 build:
   commands:
@@ -13,4 +15,3 @@ run:
 env:
   PORT: 8000
   ADMIN_TOKEN: local-admin
-
