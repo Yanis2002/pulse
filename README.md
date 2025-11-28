@@ -48,15 +48,20 @@ python app.py
 
 **Important:** Never commit `TELEGRAM_BOT_TOKEN` or `ADMIN_TOKEN` to version control. Set them in your hosting platform's environment variables.
 
-#### Amvera Deployment
+#### Railway Deployment
 
 1. Push code to GitHub
-2. Connect repository to Amvera
-3. Set environment variables in Amvera dashboard:
+2. Connect repository to Railway
+3. Railway will automatically detect the `Dockerfile` and build the container
+4. Set environment variables in Railway dashboard:
    - `TELEGRAM_BOT_TOKEN`: Your Telegram bot token
    - `ADMIN_TOKEN`: Your admin token
+   - `PORT`: Will be set automatically by Railway
    - `DB_DIR`: `/data` (for persistent storage)
-4. Deploy
+5. Add a volume mount for persistent storage:
+   - Mount path: `/data`
+   - This ensures the SQLite database persists across deployments
+6. Deploy
 
 #### Telegram Bot Setup
 
