@@ -778,6 +778,17 @@
                 <button class="admin-btn" id="finalize-tournament" style="margin-top: 1.5vh; display: none;">Финализировать турнир</button>
             </div>
             
+            <!-- Telegram Users List -->
+            <div id="telegram-users-panel" style="margin-top: 3vh; padding-top: 3vh; border-top: 1px solid var(--accent-dim);">
+                <div class="admin-title">Пользователи Telegram (для рассылки)</div>
+                <div style="display: flex; gap: 1vw; margin-bottom: 1.5vh;">
+                    <button class="admin-btn" id="load-telegram-users" style="flex: 1;">Загрузить список</button>
+                    <button class="admin-btn" id="export-telegram-users" style="flex: 1; background: rgba(0, 238, 255, 0.2); border: 1px solid rgba(0, 238, 255, 0.5);">Экспорт CSV</button>
+                </div>
+                <div id="telegram-users-info" style="color: var(--text-muted); font-size: 1.4vh; margin-bottom: 1vh;"></div>
+                <div id="telegram-users-container" style="max-height: 50vh; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
+            </div>
+            
         </div>
         <button class="nav-btn" id="toggle-admin" style="align-self: flex-start;">Показать панель управления</button>
         {% endif %}
@@ -1083,6 +1094,86 @@ $(document).ready(function() {
                 alert('Ошибка при обновлении состояния игрока');
             });
         }
+        
+        // Load Telegram users
+        $("#load-telegram-users").on("click", function() {
+            $.ajax({
+                url: `/api/telegram/users?token=${ADMIN_TOKEN}`,
+                method: 'GET'
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    const container = $("#telegram-users-container");
+                    const info = $("#telegram-users-info");
+                    container.empty();
+                    
+                    info.text(`Всего пользователей: ${data.count}`);
+                    
+                    if (data.users.length === 0) {
+                        container.html('<div style="color: var(--text-muted); padding: 2vh; text-align: center;">Пользователи не найдены</div>');
+                        return;
+                    }
+                    
+                    const table = $('<table>').css({
+                        'width': '100%',
+                        'border-collapse': 'collapse',
+                        'font-size': '1.4vh'
+                    });
+                    
+                    const thead = $('<thead>').html(`
+                        <tr style="background: rgba(255, 46, 59, 0.1);">
+                            <th style="padding: 1vh 1vw; text-align: left; border-bottom: 1px solid var(--accent-dim);">ID</th>
+                            <th style="padding: 1vh 1vw; text-align: left; border-bottom: 1px solid var(--accent-dim);">Имя</th>
+                            <th style="padding: 1vh 1vw; text-align: left; border-bottom: 1px solid var(--accent-dim);">Username</th>
+                            <th style="padding: 1vh 1vw; text-align: left; border-bottom: 1px solid var(--accent-dim);">Telegram ID</th>
+                            <th style="padding: 1vh 1vw; text-align: left; border-bottom: 1px solid var(--accent-dim);">Дата регистрации</th>
+                            <th style="padding: 1vh 1vw; text-align: left; border-bottom: 1px solid var(--accent-dim);">Ссылка</th>
+                        </tr>
+                    `);
+                    
+                    const tbody = $('<tbody>');
+                    data.users.forEach(function(user) {
+                        const row = $('<tr>').css({
+                            'border-bottom': '1px solid rgba(255, 255, 255, 0.05)'
+                        });
+                        
+                        row.append($('<td>').text(user.id).css('padding', '0.8vh 1vw'));
+                        row.append($('<td>').text(user.first_name + (user.last_name ? ' ' + user.last_name : '')).css('padding', '0.8vh 1vw'));
+                        row.append($('<td>').text(user.username ? '@' + user.username : '-').css('padding', '0.8vh 1vw'));
+                        row.append($('<td>').text(user.telegram_id).css('padding', '0.8vh 1vw').css('font-family', 'monospace').css('font-size', '1.2vh'));
+                        row.append($('<td>').text(new Date(user.registered_at).toLocaleDateString('ru-RU')).css('padding', '0.8vh 1vw'));
+                        
+                        const linkCell = $('<td>').css('padding', '0.8vh 1vw');
+                        if (user.telegram_link) {
+                            const link = $('<a>').attr('href', user.telegram_link).attr('target', '_blank')
+                                .text('Открыть').css({
+                                    'color': 'var(--accent-soft)',
+                                    'text-decoration': 'none'
+                                });
+                            linkCell.append(link);
+                        } else {
+                            linkCell.text('-');
+                        }
+                        row.append(linkCell);
+                        
+                        tbody.append(row);
+                    });
+                    
+                    table.append(thead).append(tbody);
+                    container.append(table);
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                }
+            })
+            .fail(function() {
+                alert('Ошибка при загрузке пользователей');
+            });
+        });
+        
+        // Export Telegram users
+        $("#export-telegram-users").on("click", function() {
+            window.location.href = `/api/telegram/users/export?token=${ADMIN_TOKEN}`;
+        });
         
         // Finalize tournament
         $("#finalize-tournament").on("click", function() {

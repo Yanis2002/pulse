@@ -175,6 +175,22 @@ def init_db():
             )
         """)
         
+        # Telegram users table (for collecting bot users for mailing)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS telegram_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id TEXT NOT NULL UNIQUE,
+                first_name TEXT NOT NULL,
+                last_name TEXT,
+                username TEXT,
+                language_code TEXT,
+                is_bot BOOLEAN DEFAULT 0,
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                registration_source TEXT DEFAULT 'telegram_widget'
+            )
+        """)
+        
         # Migrate existing table if columns don't exist
         try:
             db.execute("ALTER TABLE event_registrations ADD COLUMN telegram_username TEXT")
@@ -192,6 +208,22 @@ def init_db():
             db.execute("CREATE UNIQUE INDEX IF NOT EXISTS event_registrations_unique ON event_registrations(event_id, telegram_id)")
         except sqlite3.OperationalError:
             pass
+        
+        # Telegram users table (for collecting bot users for mailing)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS telegram_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id TEXT NOT NULL UNIQUE,
+                first_name TEXT NOT NULL,
+                last_name TEXT,
+                username TEXT,
+                language_code TEXT,
+                is_bot BOOLEAN DEFAULT 0,
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                registration_source TEXT DEFAULT 'telegram_widget'
+            )
+        """)
         
         # Create default tournaments for November and December if none exist
         result = db.execute("SELECT COUNT(*) as count FROM tournaments").fetchone()
