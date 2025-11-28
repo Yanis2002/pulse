@@ -16,7 +16,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "local-admin")
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8574583723:AAHGnyANIA7z_7yPftV1q_HBoYWH4XkMVnI")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
 BASE_LEVELS = [
     {"sb": 100, "bb": 200, "minutes": 12, "breakMinutes": 0},
@@ -1317,6 +1317,134 @@ def api_export_telegram_users():
                 mimetype="text/csv",
                 headers={"Content-Disposition": "attachment; filename=telegram_users.csv"}
             )
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/telegram/webhook", methods=["POST"])
+def api_telegram_webhook():
+    """Webhook endpoint for Telegram bot updates."""
+    if not TELEGRAM_BOT_TOKEN:
+        return jsonify({"ok": False, "error": "bot token not configured"}), 500
+    
+    try:
+        update_data = request.get_json()
+        if not update_data:
+            return jsonify({"ok": False, "error": "no data"}), 400
+        
+        update = Update.de_json(update_data, Bot(TELEGRAM_BOT_TOKEN))
+        
+        if update.message:
+            user = update.message.from_user
+            chat_id = update.message.chat_id
+            
+            # Save user to database
+            with get_db() as db:
+                db.execute("""
+                    INSERT OR REPLACE INTO telegram_users 
+                    (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """, (
+                    str(user.id),
+                    user.first_name or "",
+                    user.last_name or "",
+                    user.username or None,
+                    user.language_code or None,
+                    user.is_bot or False,
+                    "telegram_bot"
+                ))
+            
+            # Handle /start command
+            if update.message.text and update.message.text.startswith("/start"):
+                bot = Bot(TELEGRAM_BOT_TOKEN)
+                try:
+                    bot.send_message(
+                        chat_id=chat_id,
+                        text="🎰 Добро пожаловать в PULSE | CLUB!\n\nВы будете получать уведомления о предстоящих турнирах и событиях."
+                    )
+                except Exception as e:
+                    print(f"Error sending welcome message: {e}")
+        
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"Error processing webhook: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/telegram/setup-webhook", methods=["POST"])
+def api_setup_webhook():
+    """Setup Telegram webhook (admin only)."""
+    data = request.get_json() or {}
+    token = data.get("token", "")
+    webhook_url = data.get("webhook_url", "").strip()
+    
+    if token != ADMIN_TOKEN:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    
+    if not TELEGRAM_BOT_TOKEN:
+        return jsonify({"ok": False, "error": "bot token not configured"}), 500
+    
+    if not webhook_url:
+        return jsonify({"ok": False, "error": "webhook_url required"}), 400
+    
+    try:
+        bot = Bot(TELEGRAM_BOT_TOKEN)
+        result = bot.set_webhook(url=webhook_url)
+        return jsonify({"ok": True, "result": result})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/telegram/broadcast", methods=["POST"])
+def api_telegram_broadcast():
+    """Send broadcast message to all registered users (admin only)."""
+    data = request.get_json() or {}
+    token = data.get("token", "")
+    message = data.get("message", "").strip()
+    
+    if token != ADMIN_TOKEN:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    
+    if not TELEGRAM_BOT_TOKEN:
+        return jsonify({"ok": False, "error": "bot token not configured"}), 500
+    
+    if not message:
+        return jsonify({"ok": False, "error": "message required"}), 400
+    
+    try:
+        bot = Bot(TELEGRAM_BOT_TOKEN)
+        
+        with get_db() as db:
+            users = db.execute("""
+                SELECT telegram_id FROM telegram_users
+                WHERE is_bot = 0
+            """).fetchall()
+        
+        success_count = 0
+        error_count = 0
+        errors = []
+        
+        for user in users:
+            try:
+                bot.send_message(
+                    chat_id=int(user["telegram_id"]),
+                    text=message,
+                    parse_mode="HTML"
+                )
+                success_count += 1
+            except Exception as e:
+                error_count += 1
+                errors.append(f"User {user['telegram_id']}: {str(e)}")
+        
+        return jsonify({
+            "ok": True,
+            "sent": success_count,
+            "failed": error_count,
+            "total": len(users),
+            "errors": errors[:10]  # First 10 errors
+        })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
