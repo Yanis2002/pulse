@@ -1,99 +1,93 @@
-# PULSE | CLUB - Poker Tournament System
+# PULSE | CLUB
 
-Система управления покерными турнирами с таймером блайндов, рейтингом и таблицей результатов.
+Poker tournament management system with real-time timer, rating system, event scheduling, and Telegram bot integration.
 
-## 🚀 Быстрый запуск
+## Features
 
-### Способ 1: Скрипт запуска (рекомендуется)
+- **Real-time Timer**: Poker tournament blind timer with configurable levels
+- **Rating System**: Track player rankings and tournament results
+- **Event Scheduling**: Weekly calendar for scheduling poker, mafia, and free play events
+- **Telegram Integration**: User registration and broadcast messaging via Telegram bot
+- **Admin Panel**: Manage tournaments, events, and send notifications
 
+## Setup
+
+### Local Development
+
+1. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Set environment variables (optional, defaults provided):
+```bash
+export ADMIN_TOKEN=your-admin-token
+export TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+export PORT=8000
+```
+
+3. Run the server:
 ```bash
 ./start.sh
 ```
 
-Скрипт автоматически:
-- Проверит виртуальное окружение
-- Установит зависимости
-- Остановит старые процессы
-- Запустит сервер
-
-### Способ 2: Ручной запуск
-
+Or manually:
 ```bash
-# Активация виртуального окружения
-source .venv/bin/activate
-
-# Установка зависимостей (только первый раз)
-pip install -r requirements.txt
-
-# Запуск сервера
 python app.py
 ```
 
-## 📍 Доступ к сайту
+### Production Deployment
 
-После запуска сервер будет доступен по адресам:
-- **Локально**: http://127.0.0.1:8000
-- **В сети**: http://192.168.1.121:8000
+#### Environment Variables
 
-## 🎯 Функционал
+**Required:**
+- `TELEGRAM_BOT_TOKEN`: Your Telegram bot token (get from @BotFather)
+- `ADMIN_TOKEN`: Secret token for admin access
+- `PORT`: Server port (default: 8000)
+- `DB_DIR`: Database directory for persistent storage (default: current directory)
 
-### Главная страница (`/`)
-- Splash screen с анимацией при первом открытии
-- Таблица турнира с редактируемыми ячейками
-- Автоматический подсчет итогов и баунти
+**Important:** Never commit `TELEGRAM_BOT_TOKEN` or `ADMIN_TOKEN` to version control. Set them in your hosting platform's environment variables.
 
-### Таймер (`/timer`)
-- Таймер блайндов с уровнями
-- Управление турниром (старт/пауза, следующий уровень)
-- Настройки уровней и перерывов
+#### Amvera Deployment
 
-### Рейтинг (`/rating`)
-- **Вкладка "Простой рейтинг"**: Список участников с очками
-- **Вкладка "РЕЙТИНГ НОЯБРЯ"**: Полная таблица турнира с играми
-- Редактирование данных (для админов)
+1. Push code to GitHub
+2. Connect repository to Amvera
+3. Set environment variables in Amvera dashboard:
+   - `TELEGRAM_BOT_TOKEN`: Your Telegram bot token
+   - `ADMIN_TOKEN`: Your admin token
+   - `DB_DIR`: `/data` (for persistent storage)
+4. Deploy
 
-## 🗄️ База данных
+#### Telegram Bot Setup
 
-База данных SQLite создается автоматически при первом запуске:
-- `pulse_tournaments.db` - файл базы данных
-- Таблицы: tournaments, players, tournament_results, player_bounties
+1. Create a bot via [@BotFather](https://t.me/BotFather) on Telegram
+2. Get your bot token
+3. Set `TELEGRAM_BOT_TOKEN` environment variable
+4. Configure webhook (optional, for automatic user collection):
+   - Webhook URL: `https://your-domain.com/api/telegram/webhook`
+   - Use the admin panel or Telegram Bot API to set the webhook
 
-## 🔧 Настройки
+## API Endpoints
 
-- **Порт**: По умолчанию 8000 (можно изменить через переменную окружения `PORT`)
-- **Админ токен**: По умолчанию `local-admin` (можно изменить через `ADMIN_TOKEN`)
+### Public
+- `GET /` - Main dashboard
+- `GET /rating` - Rating page
+- `GET /timer` - Timer page
+- `GET /contacts` - Contacts page
 
-## 📝 Структура проекта
+### Admin (requires `token` parameter)
+- `GET /api/telegram/users?token=...` - Get registered Telegram users
+- `GET /api/telegram/users/export?token=...` - Export users as CSV
+- `POST /api/telegram/broadcast` - Send broadcast message to all users
+- `POST /api/telegram/setup-webhook` - Setup Telegram webhook
 
-```
-poker/
-├── app.py                 # Основной файл приложения
-├── start.sh              # Скрипт запуска
-├── requirements.txt      # Зависимости Python
-├── pulse_tournaments.db  # База данных SQLite
-├── static/               # Статические файлы (логотип, звуки)
-├── templates/            # HTML шаблоны
-│   ├── header.html       # Общая шапка сайта
-│   ├── dashboard.html    # Главная страница
-│   ├── index.html        # Страница таймера
-│   └── rating.html       # Страница рейтинга
-└── flask_server.log      # Лог сервера
-```
+## Security Notes
 
-## 🛑 Остановка сервера
+- Admin token is required for all admin operations
+- Telegram bot token must be set via environment variable, never hardcoded
+- Database is stored in SQLite format
+- For production, use strong `ADMIN_TOKEN` and keep it secret
 
-Нажмите `Ctrl+C` в терминале, где запущен сервер, или:
+## License
 
-```bash
-pkill -9 -f "python.*app.py"
-```
-
-## 📦 Зависимости
-
-- Flask 3.0.3
-- Flask-SocketIO 5.3.6
-- python-socketio
-- simple-websocket
-
-Все зависимости устанавливаются автоматически при первом запуске через `start.sh`.
-
+Private project - All rights reserved
