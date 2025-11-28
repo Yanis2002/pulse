@@ -1591,9 +1591,11 @@
                 lateLevels:Math.max(1,Math.min(LEVELS.length,late)),
             };
 
+            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
             socket.emit("action",{
                 action:"config",
                 token:ADMIN_TOKEN,
+                telegram_username:telegramUsername,
                 cfg:{...levelConfig,breaks:breakConfig}
             });
 
@@ -1620,9 +1622,11 @@
             }
             breakConfig=arr;
 
+            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
             socket.emit("action",{
                 action:"config",
                 token:ADMIN_TOKEN,
+                telegram_username:telegramUsername,
                 cfg:{...levelConfig,breaks:breakConfig}
             });
 
