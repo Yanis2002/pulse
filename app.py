@@ -25,7 +25,8 @@ ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "local-admin")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8574583723:AAHGnyANIA7z_7yPftV1q_HBoYWH4XkMVnI")
 
 # List of Telegram usernames (without @) that have admin rights
-ADMIN_TELEGRAM_USERNAMES = os.environ.get("ADMIN_TELEGRAM_USERNAMES", "").split(",")
+# Default admin: 47
+ADMIN_TELEGRAM_USERNAMES = os.environ.get("ADMIN_TELEGRAM_USERNAMES", "47").split(",")
 ADMIN_TELEGRAM_USERNAMES = [u.strip().lower().replace("@", "") for u in ADMIN_TELEGRAM_USERNAMES if u.strip()]
 
 BASE_LEVELS = [
