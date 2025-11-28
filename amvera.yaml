@@ -10,7 +10,7 @@ build:
     - pip install -r requirements.txt
 
 run:
-  command: python wsgi.py
+  command: python -m app
 
 env:
   PORT: 8000

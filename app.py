@@ -1310,8 +1310,8 @@ def kill_existing_port(port=8000):
     except subprocess.CalledProcessError:
         pass  # Никто порт не слушает
 
-# Don't kill port on production (Amvera)
-if os.environ.get("AMVERA") != "true":
+# Don't kill port on production (Amvera) or when running as module
+if os.environ.get("AMVERA") != "true" and __name__ == "__main__":
     kill_existing_port(8000)
 
 if __name__ == "__main__":

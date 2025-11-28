@@ -2,9 +2,14 @@
 WSGI entry point for Amvera deployment
 """
 import os
+import sys
+
+# Add current directory to path
+sys.path.insert(0, os.path.dirname(__file__))
+
 from app import app, socketio
 
-# Export app and socketio for WSGI servers
+# Export app for WSGI servers
 application = app
 
 if __name__ == "__main__":
