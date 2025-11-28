@@ -1054,6 +1054,14 @@
                 <label class="event-form-label">Описание (опционально, для "Свободная игра")</label>
                 <input type="text" class="event-form-input" id="event-description" placeholder="Например: Настольные игры">
             </div>
+            <div class="event-form-group">
+                <label class="event-form-label">Количество мест</label>
+                <input type="number" class="event-form-input" id="event-max-places" placeholder="20" value="20" min="1">
+            </div>
+            <div class="event-form-group">
+                <label class="event-form-label">Цена (₽)</label>
+                <input type="number" class="event-form-input" id="event-price" placeholder="1000" value="1000" min="0">
+            </div>
             <div class="event-form-buttons">
                 <button class="event-form-btn event-form-btn-secondary" id="event-modal-cancel">Отмена</button>
                 <button class="event-form-btn event-form-btn-primary" id="event-modal-save">Сохранить</button>
@@ -1199,7 +1207,21 @@
                             eventItem.append($('<div>').addClass('event-text').text(event.description));
                         }
                         
+                        // Add places and price info
+                        const eventInfo = $('<div>').addClass('event-info').css({
+                            'display': 'flex',
+                            'gap': '1.5vw',
+                            'font-size': '1.3vh',
+                            'color': 'var(--text-muted)',
+                            'margin-top': '0.5vh'
+                        });
                         const regCount = event.registration_count || 0;
+                        const maxPlaces = event.max_places || 20;
+                        const price = event.price || 1000;
+                        eventInfo.append($('<span>').text(`${regCount}/${maxPlaces} мест`));
+                        eventInfo.append($('<span>').text(`${price} ₽`).css('color', 'var(--accent-soft)'));
+                        eventItem.append(eventInfo);
+                        
                         if (regCount > 0) {
                             const registeredDiv = $('<div>').addClass('event-registered');
                             registeredDiv.html(`<span class="event-registered-count">${regCount}</span> ${regCount === 1 ? 'запись' : regCount < 5 ? 'записи' : 'записей'}`);
@@ -1266,6 +1288,8 @@
             const time = $('#event-time').val().trim();
             const eventType = $('#event-type').val();
             const description = $('#event-description').val().trim();
+            const maxPlaces = parseInt($('#event-max-places').val()) || 20;
+            const price = parseInt($('#event-price').val()) || 1000;
             
             if (!time || !eventType) {
                 alert('Заполните время и тип события');
@@ -1281,7 +1305,9 @@
                     date: dateKey,
                     time: time,
                     event_type: eventType,
-                    description: description || ''
+                    description: description || '',
+                    max_places: maxPlaces,
+                    price: price
                 })
             })
             .done(function(data) {
@@ -1467,21 +1493,7 @@
             pendingEventId = null;
         });
         
-        // Check offer status on page load
-        $(document).ready(function() {
-            const telegramId = localStorage.getItem('pulse_telegram_id');
-            if (telegramId) {
-                $.ajax({
-                    url: `/api/telegram/user-status?telegram_id=${telegramId}`,
-                    method: 'GET'
-                })
-                .done(function(data) {
-                    if (data.ok && !data.offer_accepted) {
-                        $('#offer-modal').addClass('active');
-                    }
-                });
-            }
-        });
+        // Offer modal is now shown during Telegram registration, not on page load
 
         function unregisterFromEvent(eventId) {
             const telegramId = localStorage.getItem('pulse_telegram_id');
@@ -1535,6 +1547,8 @@
                                 time: event.time,
                                 type: event.event_type,
                                 description: event.description,
+                                max_places: event.max_places || 20,
+                                price: event.price || 1000,
                                 registered: registered,
                                 registration_count: event.registration_count || 0,
                                 is_registered: event.is_registered || false

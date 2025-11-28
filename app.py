@@ -145,6 +145,8 @@ def init_db():
                 time TEXT NOT NULL,
                 event_type TEXT NOT NULL,
                 description TEXT,
+                max_places INTEGER DEFAULT 20,
+                price INTEGER DEFAULT 1000,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(date, time, event_type)
             )
@@ -211,6 +213,16 @@ def init_db():
             pass  # Column already exists
         try:
             db.execute("ALTER TABLE telegram_users ADD COLUMN game_nickname TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migrate events table - add new columns if they don't exist
+        try:
+            db.execute("ALTER TABLE events ADD COLUMN max_places INTEGER DEFAULT 20")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        try:
+            db.execute("ALTER TABLE events ADD COLUMN price INTEGER DEFAULT 1000")
         except sqlite3.OperationalError:
             pass  # Column already exists
         
@@ -719,6 +731,8 @@ def api_get_events():
                     "time": event["time"],
                     "event_type": event["event_type"],
                     "description": event["description"] or "",
+                    "max_places": event.get("max_places", 20),
+                    "price": event.get("price", 1000),
                     "registered": registered,
                     "telegram_users": telegram_users,
                     "registration_count": event["registration_count"] or 0,
@@ -743,6 +757,8 @@ def api_create_event():
     time = data.get("time", "").strip()
     event_type = data.get("event_type", "").strip()
     description = data.get("description", "").strip()
+    max_places = data.get("max_places", 20)
+    price = data.get("price", 1000)
     
     if not date or not time or not event_type:
         return jsonify({"ok": False, "error": "date, time and event_type required"}), 400
@@ -751,11 +767,18 @@ def api_create_event():
         return jsonify({"ok": False, "error": "invalid event_type"}), 400
     
     try:
+        max_places = int(max_places) if max_places else 20
+        price = int(price) if price else 1000
+    except (ValueError, TypeError):
+        max_places = 20
+        price = 1000
+    
+    try:
         with get_db() as db:
             cursor = db.execute("""
-                INSERT INTO events (date, time, event_type, description)
-                VALUES (?, ?, ?, ?)
-            """, (date, time, event_type, description))
+                INSERT INTO events (date, time, event_type, description, max_places, price)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (date, time, event_type, description, max_places, price))
             event_id = cursor.lastrowid
         socketio.emit("events_update", {"date": date})
         return jsonify({"ok": True, "event_id": event_id})
