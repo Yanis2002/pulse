@@ -1663,6 +1663,20 @@
                         $('#event-details-type').text(event.event_type).css('background', typeColors[event.event_type] || 'rgba(255, 255, 255, 0.1)').css('padding', '0.5vh 1vw').css('border-radius', '8px').css('display', 'inline-block');
                         $('#event-details-description').text(event.description || 'Нет описания');
                         
+                        // Add places and price info after description
+                        $('#event-details-description').next('.event-places-price').remove(); // Remove if exists
+                        const placesInfo = $(`<div class="event-places-price" style="margin-top: 1.5vh; padding: 1vh 1.5vw; background: rgba(255, 255, 255, 0.05); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 1vw;">
+                                <span style="font-size: 1.6vh; color: var(--text-muted);">Мест:</span>
+                                <span style="font-size: 1.8vh; font-weight: 700; color: var(--text);">${players.length} / ${event.max_places || 20}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 1vw;">
+                                <span style="font-size: 1.6vh; color: var(--text-muted);">Цена:</span>
+                                <span style="font-size: 1.8vh; font-weight: 700; color: var(--accent-soft);">${event.price || 1000} ₽</span>
+                            </div>
+                        </div>`);
+                        $('#event-details-description').after(placesInfo);
+                        
                         // Set players list
                         const playersList = $('#event-details-players-list');
                         playersList.empty();
@@ -1772,6 +1786,20 @@
                         $('#event-details-time').text(`${event.date} в ${event.time}`);
                         $('#event-details-type').text(event.event_type).css('background', typeColors[event.event_type] || 'rgba(255, 255, 255, 0.1)').css('padding', '0.5vh 1vw').css('border-radius', '8px').css('display', 'inline-block');
                         $('#event-details-description').text(event.description || 'Нет описания');
+                        
+                        // Add places and price info after description
+                        $('#event-details-description').next('.event-places-price').remove(); // Remove if exists
+                        const placesInfo = $(`<div class="event-places-price" style="margin-top: 1.5vh; padding: 1vh 1.5vw; background: rgba(255, 255, 255, 0.05); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 1vw;">
+                                <span style="font-size: 1.6vh; color: var(--text-muted);">Мест:</span>
+                                <span style="font-size: 1.8vh; font-weight: 700; color: var(--text);">${players.length} / ${event.max_places || 20}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 1vw;">
+                                <span style="font-size: 1.6vh; color: var(--text-muted);">Цена:</span>
+                                <span style="font-size: 1.8vh; font-weight: 700; color: var(--accent-soft);">${event.price || 1000} ₽</span>
+                            </div>
+                        </div>`);
+                        $('#event-details-description').after(placesInfo);
                         
                         // Set players list
                         const playersList = $('#event-details-players-list');

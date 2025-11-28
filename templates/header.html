@@ -403,20 +403,19 @@ document.addEventListener('DOMContentLoaded', function(){
                 
                 // Check if offer needs to be accepted
                 if (!data.offer_accepted) {
-                    // Show offer modal - redirect to dashboard where offer modal exists
-                    const offerModal = document.getElementById('offer-modal');
+                    // Show offer modal
+                    const offerModal = document.getElementById('offer-modal') || document.getElementById('offer-modal-header');
                     if (offerModal) {
+                        offerModal.style.display = 'block';
                         offerModal.classList.add('active');
-                    } else {
-                        // If not on dashboard, show alert and redirect
-                        alert('Для использования сервиса необходимо принять публичную оферту. Вы будете перенаправлены на главную страницу.');
-                        window.location.href = '/';
                     }
                 } else if (!data.game_nickname) {
-                    // Show nickname modal
+                    // Show nickname modal (only on dashboard)
                     const nicknameModal = document.getElementById('nickname-modal');
                     if (nicknameModal) {
                         nicknameModal.classList.add('active');
+                    } else {
+                        alert('Регистрация выполнена! Пожалуйста, установите игровой никнейм на главной странице.');
                     }
                 } else {
                     alert('Регистрация через Telegram выполнена!\n\nИмя: ' + playerName + '\nTelegram ID: ' + telegramId + (telegramUsername ? '\nUsername: @' + telegramUsername : ''));
