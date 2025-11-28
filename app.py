@@ -200,6 +200,20 @@ def init_db():
             )
         """)
         
+        # Migrate telegram_users table - add new columns if they don't exist
+        try:
+            db.execute("ALTER TABLE telegram_users ADD COLUMN offer_accepted BOOLEAN DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        try:
+            db.execute("ALTER TABLE telegram_users ADD COLUMN offer_accepted_at TIMESTAMP")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        try:
+            db.execute("ALTER TABLE telegram_users ADD COLUMN game_nickname TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
         # Migrate existing table if columns don't exist
         try:
             db.execute("ALTER TABLE event_registrations ADD COLUMN telegram_username TEXT")
@@ -230,7 +244,10 @@ def init_db():
                 is_bot BOOLEAN DEFAULT 0,
                 registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                registration_source TEXT DEFAULT 'telegram_widget'
+                registration_source TEXT DEFAULT 'telegram_widget',
+                offer_accepted BOOLEAN DEFAULT 0,
+                offer_accepted_at TIMESTAMP,
+                game_nickname TEXT
             )
         """)
         
@@ -755,6 +772,7 @@ def api_register_event(event_id):
     player_name = data.get("player_name", "").strip()
     telegram_username = data.get("telegram_username", "").strip()
     telegram_id = data.get("telegram_id", "").strip()
+    game_nickname = data.get("game_nickname", "").strip()
     
     if not player_name:
         return jsonify({"ok": False, "error": "player_name required"}), 400
@@ -762,18 +780,50 @@ def api_register_event(event_id):
     if not telegram_username and not telegram_id:
         return jsonify({"ok": False, "error": "telegram_username or telegram_id required"}), 400
     
+    if not game_nickname:
+        return jsonify({"ok": False, "error": "game_nickname required"}), 400
+    
+    # Validate game_nickname: 3-20 chars, letters (lat/cyrillic), numbers, underscore
+    import re
+    if not re.match(r'^[a-zA-Zа-яА-ЯёЁ0-9_]{3,20}$', game_nickname):
+        return jsonify({"ok": False, "error": "game_nickname должен содержать 3-20 символов: буквы (лат/кирилл), цифры и _"}), 400
+    
     try:
         with get_db() as db:
+            # Check if user has accepted the offer
+            user = None
+            if telegram_id:
+                user = db.execute("SELECT offer_accepted FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            elif telegram_username:
+                user = db.execute("SELECT offer_accepted FROM telegram_users WHERE username = ?", (telegram_username,)).fetchone()
+            
+            if not user or not user.get("offer_accepted"):
+                return jsonify({"ok": False, "error": "offer_not_accepted", "message": "Необходимо принять публичную оферту для записи на события"}), 403
+            
             # Check if event exists
             event = db.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
             if not event:
                 return jsonify({"ok": False, "error": "event not found"}), 404
             
-            # Register
+            # Update game_nickname in telegram_users if provided
+            if telegram_id:
+                db.execute("""
+                    UPDATE telegram_users 
+                    SET game_nickname = ?, last_active = CURRENT_TIMESTAMP
+                    WHERE telegram_id = ?
+                """, (game_nickname, telegram_id))
+            elif telegram_username:
+                db.execute("""
+                    UPDATE telegram_users 
+                    SET game_nickname = ?, last_active = CURRENT_TIMESTAMP
+                    WHERE username = ?
+                """, (game_nickname, telegram_username))
+            
+            # Register with game_nickname as player_name
             db.execute("""
                 INSERT INTO event_registrations (event_id, player_name, telegram_username, telegram_id)
                 VALUES (?, ?, ?, ?)
-            """, (event_id, player_name, telegram_username or None, telegram_id or None))
+            """, (event_id, game_nickname, telegram_username or None, telegram_id or None))
         
         socketio.emit("events_update", {"date": event["date"]})
         return jsonify({"ok": True})
@@ -1225,14 +1275,91 @@ def api_register_telegram_user():
     
     try:
         with get_db() as db:
-            # Insert or update user (SQLite doesn't support ON CONFLICT DO UPDATE directly, use INSERT OR REPLACE)
-            db.execute("""
-                INSERT OR REPLACE INTO telegram_users 
-                (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, registration_source))
+            # Check if user exists to preserve offer_accepted status
+            existing = db.execute("SELECT offer_accepted, game_nickname FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            
+            if existing:
+                # Update user but preserve offer_accepted and game_nickname
+                db.execute("""
+                    UPDATE telegram_users 
+                    SET first_name = ?, last_name = ?, username = ?, language_code = ?, 
+                        is_bot = ?, registration_source = ?, last_active = CURRENT_TIMESTAMP
+                    WHERE telegram_id = ?
+                """, (first_name, last_name or None, username or None, language_code or None, is_bot, registration_source, telegram_id))
+                offer_accepted = existing.get("offer_accepted", False)
+                game_nickname = existing.get("game_nickname")
+            else:
+                # New user
+                db.execute("""
+                    INSERT INTO telegram_users 
+                    (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active, offer_accepted)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0)
+                """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, registration_source))
+                offer_accepted = False
+                game_nickname = None
         
-        return jsonify({"ok": True, "message": "User registered successfully"})
+        return jsonify({
+            "ok": True, 
+            "message": "User registered successfully",
+            "offer_accepted": offer_accepted,
+            "game_nickname": game_nickname
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/telegram/accept-offer", methods=["POST"])
+def api_accept_offer():
+    """Accept public offer."""
+    data = request.get_json() or {}
+    telegram_id = data.get("telegram_id", "").strip()
+    
+    if not telegram_id:
+        return jsonify({"ok": False, "error": "telegram_id required"}), 400
+    
+    try:
+        with get_db() as db:
+            db.execute("""
+                UPDATE telegram_users 
+                SET offer_accepted = 1, offer_accepted_at = CURRENT_TIMESTAMP, last_active = CURRENT_TIMESTAMP
+                WHERE telegram_id = ?
+            """, (telegram_id,))
+            
+            if db.rowcount == 0:
+                return jsonify({"ok": False, "error": "user not found"}), 404
+        
+        return jsonify({"ok": True, "message": "Offer accepted successfully"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/telegram/user-status", methods=["GET"])
+def api_get_user_status():
+    """Get user status (offer accepted, game_nickname)."""
+    telegram_id = request.args.get("telegram_id", "").strip()
+    
+    if not telegram_id:
+        return jsonify({"ok": False, "error": "telegram_id required"}), 400
+    
+    try:
+        with get_db() as db:
+            user = db.execute("""
+                SELECT offer_accepted, game_nickname, first_name, last_name, username
+                FROM telegram_users 
+                WHERE telegram_id = ?
+            """, (telegram_id,)).fetchone()
+            
+            if not user:
+                return jsonify({"ok": False, "error": "user not found"}), 404
+            
+            return jsonify({
+                "ok": True,
+                "offer_accepted": bool(user.get("offer_accepted")),
+                "game_nickname": user.get("game_nickname"),
+                "first_name": user.get("first_name"),
+                "last_name": user.get("last_name"),
+                "username": user.get("username")
+            })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
