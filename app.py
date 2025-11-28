@@ -70,15 +70,14 @@ socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
 
 # Add headers to allow Telegram widget to work
 # This fixes "Bot domain invalid" error in Telegram Web
+# Similar to removing SecurityMiddleware in Django
 @app.after_request
 def set_security_headers(response):
     # Remove X-Frame-Options to allow Telegram widget iframe
+    # This is similar to removing SecurityMiddleware in Django
     response.headers.pop('X-Frame-Options', None)
-    # Allow embedding from Telegram
-    response.headers['X-Frame-Options'] = 'ALLOWALL'
-    # Allow scripts from Telegram domain for widget
-    csp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://*.telegram.org; frame-src 'self' https://telegram.org https://*.telegram.org; connect-src 'self' https://telegram.org https://*.telegram.org;"
-    response.headers['Content-Security-Policy'] = csp
+    # Remove strict CSP that might block Telegram scripts
+    response.headers.pop('Content-Security-Policy', None)
     return response
 
 # Use persistent storage path if available, otherwise use local path
