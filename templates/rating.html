@@ -864,6 +864,11 @@
             <!-- Telegram Users List -->
             <div id="telegram-users-panel" style="margin-top: 3vh; padding-top: 3vh; border-top: 1px solid var(--accent-dim);">
                 <div class="admin-title">Пользователи Telegram (для рассылки)</div>
+                <div style="color: var(--text-muted); font-size: 1.3vh; margin-bottom: 1.5vh; padding: 1vh 1.5vw; background: rgba(0, 238, 255, 0.05); border-radius: 8px; border: 1px solid rgba(0, 238, 255, 0.2);">
+                    <strong>Настройка webhook:</strong> Для автоматического сбора пользователей, активировавших бота, нужно настроить webhook один раз.
+                    <button class="admin-btn" id="setup-webhook" style="margin-top: 1vh; width: 100%; background: rgba(0, 238, 255, 0.2); border: 1px solid rgba(0, 238, 255, 0.5);">⚙ Настроить webhook для бота</button>
+                    <div id="webhook-status" style="margin-top: 1vh; font-size: 1.2vh;"></div>
+                </div>
                 <div style="display: flex; gap: 1vw; margin-bottom: 1.5vh;">
                     <button class="admin-btn" id="load-telegram-users" style="flex: 1;">Загрузить список</button>
                     <button class="admin-btn" id="export-telegram-users" style="flex: 1; background: rgba(0, 238, 255, 0.2); border: 1px solid rgba(0, 238, 255, 0.5);">Экспорт CSV</button>
@@ -1269,6 +1274,40 @@ $(document).ready(function() {
         // Export Telegram users
         $("#export-telegram-users").on("click", function() {
             window.location.href = `/api/telegram/users/export?token=${ADMIN_TOKEN}`;
+        });
+        
+        // Setup webhook
+        $("#setup-webhook").on("click", function() {
+            const btn = $(this);
+            const statusDiv = $("#webhook-status");
+            btn.prop('disabled', true).text('Настройка...');
+            statusDiv.html('');
+            
+            // Get current site URL
+            const webhookUrl = window.location.origin + '/api/telegram/webhook';
+            
+            $.ajax({
+                url: '/api/telegram/setup-webhook',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    token: ADMIN_TOKEN,
+                    webhook_url: webhookUrl
+                })
+            })
+            .done(function(data) {
+                if (data.ok && data.result && data.result.ok) {
+                    statusDiv.html(`<span style="color: #00ff00;">✓ Webhook успешно настроен!</span><br><span style="font-size: 1.1vh; color: var(--text-muted);">URL: ${webhookUrl}</span>`);
+                    btn.text('Webhook настроен').css('background', 'rgba(0, 255, 0, 0.2)').css('border-color', 'rgba(0, 255, 0, 0.5)');
+                } else {
+                    statusDiv.html(`<span style="color: var(--accent-soft);">Ошибка: ${data.result ? data.result.description : (data.error || 'неизвестная ошибка')}</span>`);
+                    btn.prop('disabled', false).text('⚙ Настроить webhook для бота');
+                }
+            })
+            .fail(function() {
+                statusDiv.html('<span style="color: var(--accent-soft);">Ошибка при настройке webhook</span>');
+                btn.prop('disabled', false).text('⚙ Настроить webhook для бота');
+            });
         });
         
         // Send broadcast message
