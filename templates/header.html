@@ -335,21 +335,86 @@ document.addEventListener('DOMContentLoaded', function(){
     const profileBackdrop = document.getElementById('profile-backdrop');
     
     function loadProfileData() {
-        const playerName = localStorage.getItem('pulse_player_name') || 'Не зарегистрирован';
         const telegramId = localStorage.getItem('pulse_telegram_id') || '';
-        const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
         const profileNameEl = document.getElementById('profile-name');
         const profileTelegramEl = document.getElementById('profile-telegram');
         
-        if (profileNameEl) profileNameEl.textContent = playerName;
-        if (profileTelegramEl) {
-            // Show username if available, otherwise show ID
-            if (telegramUsername) {
-                profileTelegramEl.textContent = '@' + telegramUsername;
-            } else if (telegramId) {
-                profileTelegramEl.textContent = 'ID: ' + telegramId;
-            } else {
-                profileTelegramEl.textContent = 'Не указан';
+        // Show loading state
+        if (profileNameEl) profileNameEl.textContent = 'Загрузка...';
+        if (profileTelegramEl) profileTelegramEl.textContent = 'Загрузка...';
+        
+        // If we have telegram_id, load data from server
+        if (telegramId) {
+            fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ok) {
+                        // Update localStorage with server data
+                        const fullName = data.first_name + (data.last_name ? ' ' + data.last_name : '');
+                        localStorage.setItem('pulse_player_name', fullName || 'Не зарегистрирован');
+                        if (data.username) {
+                            localStorage.setItem('pulse_telegram_username', data.username);
+                        }
+                        
+                        // Update display
+                        if (profileNameEl) {
+                            profileNameEl.textContent = fullName || 'Не зарегистрирован';
+                        }
+                        if (profileTelegramEl) {
+                            if (data.username) {
+                                profileTelegramEl.textContent = '@' + data.username;
+                            } else if (telegramId) {
+                                profileTelegramEl.textContent = 'ID: ' + telegramId;
+                            } else {
+                                profileTelegramEl.textContent = 'Не указан';
+                            }
+                        }
+                    } else {
+                        // Fallback to localStorage if server request fails
+                        const playerName = localStorage.getItem('pulse_player_name') || 'Не зарегистрирован';
+                        const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+                        
+                        if (profileNameEl) profileNameEl.textContent = playerName;
+                        if (profileTelegramEl) {
+                            if (telegramUsername) {
+                                profileTelegramEl.textContent = '@' + telegramUsername;
+                            } else if (telegramId) {
+                                profileTelegramEl.textContent = 'ID: ' + telegramId;
+                            } else {
+                                profileTelegramEl.textContent = 'Не указан';
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading user data:', error);
+                    // Fallback to localStorage
+                    const playerName = localStorage.getItem('pulse_player_name') || 'Не зарегистрирован';
+                    const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+                    
+                    if (profileNameEl) profileNameEl.textContent = playerName;
+                    if (profileTelegramEl) {
+                        if (telegramUsername) {
+                            profileTelegramEl.textContent = '@' + telegramUsername;
+                        } else if (telegramId) {
+                            profileTelegramEl.textContent = 'ID: ' + telegramId;
+                        } else {
+                            profileTelegramEl.textContent = 'Не указан';
+                        }
+                    }
+                });
+        } else {
+            // No telegram_id, show default
+            const playerName = localStorage.getItem('pulse_player_name') || 'Не зарегистрирован';
+            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+            
+            if (profileNameEl) profileNameEl.textContent = playerName;
+            if (profileTelegramEl) {
+                if (telegramUsername) {
+                    profileTelegramEl.textContent = '@' + telegramUsername;
+                } else {
+                    profileTelegramEl.textContent = 'Не указан';
+                }
             }
         }
     }
