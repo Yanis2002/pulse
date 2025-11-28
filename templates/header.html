@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const storedState = localStorage.getItem('pulse_music_enabled');
     // Check if music was explicitly disabled by user
     const wasDisabled = storedState === 'false';
-    audio.volume = 0.5;
+    audio.volume = 0.03;
     
     // Check navigation type to determine if this is a page refresh or navigation
     const navEntry = performance.getEntriesByType('navigation')[0];
@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function(){
     // Auto-play on all pages except timer (only if music was not disabled by user)
     if (!isTimerPage && !wasDisabled) {
         // Set volume to 50%
-        audio.volume = 0.5;
+        audio.volume = 0.03;
         // Try to play music automatically
         audio.play().then(()=>{
             isPlaying = true;
@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', function(){
         e.preventDefault();
         if(!isPlaying){
             // Set volume to 50%
-            audio.volume = 0.5;
+            audio.volume = 0.03;
             // Continue from saved time
             audio.currentTime = savedTime || 0;
             audio.play().then(()=>{
