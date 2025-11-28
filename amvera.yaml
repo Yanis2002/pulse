@@ -1,14 +1,13 @@
 name: pulse
-runtime: python
-version: 3.11
+runtime: docker
 
 build:
-  commands:
-    - pip install --upgrade pip
-    - pip install -r requirements.txt
+  dockerfile: Dockerfile
 
 run:
-  command: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT wsgi:application
+  image: pulse
+  command: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:8000 wsgi:application
+  containerPort: 8000
 
 env:
   PORT: 8000
