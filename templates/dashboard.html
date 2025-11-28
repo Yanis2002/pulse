@@ -630,15 +630,89 @@
             }
         }
 
+        /* iPhone 14 и подобные (390px - 428px) */
         @media (max-width: 800px) {
+            .container {
+                padding: 2vh 4vw 3vh;
+            }
+            
             .days-container {
                 grid-template-columns: repeat(2, 1fr);
+                gap: 3vw;
+            }
+            
+            .day-card {
+                min-height: 28vh;
+                max-height: 28vh;
+                padding: 1.5vh 2vw;
+            }
+            
+            .day-name {
+                font-size: 1.8vh;
+            }
+            
+            .day-date {
+                font-size: 1.4vh;
+            }
+            
+            .event-item {
+                font-size: 1.3vh;
+                padding: 0.8vh 1.2vw;
+                margin-bottom: 1vh;
+            }
+            
+            .week-nav-btn {
+                padding: 0.8vh 2vw;
+                font-size: 2.5vh;
+            }
+            
+            .week-range {
+                font-size: 1.6vh;
+            }
+            
+            .main-tab-btn {
+                padding: 0.8vh 3vw;
+                font-size: 1.3vh;
             }
         }
 
+        /* Очень маленькие экраны */
         @media (max-width: 500px) {
+            .container {
+                padding: 1.5vh 5vw 2vh;
+            }
+            
             .days-container {
                 grid-template-columns: 1fr;
+                gap: 2.5vw;
+            }
+            
+            .day-card {
+                min-height: auto;
+                max-height: none;
+                padding: 2vh 3vw;
+            }
+            
+            .day-name {
+                font-size: 2vh;
+            }
+            
+            .day-date {
+                font-size: 1.6vh;
+            }
+            
+            .event-item {
+                font-size: 1.5vh;
+                padding: 1vh 2vw;
+            }
+            
+            .week-nav-btn {
+                padding: 0.7vh 1.5vw;
+                font-size: 2.2vh;
+            }
+            
+            .week-range {
+                font-size: 1.4vh;
             }
         }
 

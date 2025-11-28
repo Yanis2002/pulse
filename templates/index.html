@@ -679,26 +679,91 @@
             }
         }
 
+        /* iPhone 14 и подобные (390px - 428px) */
         @media(max-width:900px){
-            .root{padding:1.4vh 1.8vw 2.4vh;}
-            .top-bar{flex-direction:column;align-items:flex-start;gap:1vh;}
+            .root{
+                padding: 1.5vh 4vw 2.5vh;
+                min-height: 100vh;
+            }
+            
+            .top-bar{
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1.5vh;
+            }
+            
             .blinds-row{
-                flex-direction:column;
-                align-items:center;
+                flex-direction: column;
+                align-items: center;
+                gap: 2vh;
+                width: 100%;
             }
-            .blind-card{width:80vw;}
+            
+            .blind-card{
+                width: 90vw;
+                max-width: 100%;
+            }
+            
             .col-left{
-                position:static;
-                flex-direction:row;
-                flex-wrap:wrap;
-                gap:1vh 1vw;
-                padding:0;
-                margin-bottom:2vh;
+                position: static;
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 1.5vh 2vw;
+                padding: 0;
+                margin-bottom: 2vh;
+                width: 100%;
             }
+            
             .main{
-                flex-direction:column;
-                justify-content:flex-start;
-                gap:2vh;
+                flex-direction: column;
+                justify-content: flex-start;
+                gap: 3vh;
+                align-items: center;
+            }
+            
+            .timer-wrapper{
+                width: 50vw;
+                height: 50vw;
+                max-width: 280px;
+                max-height: 280px;
+            }
+            
+            .timer-value{
+                font-size: 12vw;
+            }
+            
+            .blind-value {
+                font-size: 7vh !important;
+            }
+            
+            .blind-label {
+                font-size: 2.2vh !important;
+            }
+        }
+        
+        /* Очень маленькие экраны */
+        @media (max-width: 480px) {
+            .root {
+                padding: 1vh 5vw 2vh;
+            }
+            
+            .timer-wrapper {
+                width: 60vw;
+                height: 60vw;
+                max-width: 240px;
+                max-height: 240px;
+            }
+            
+            .timer-value {
+                font-size: 14vw;
+            }
+            
+            .blind-card {
+                width: 95vw;
+            }
+            
+            .blind-value {
+                font-size: 6vh !important;
             }
         }
         /* === УВЕЛИЧЕННЫЕ БЛАЙНДЫ — ОЧЕНЬ КРУПНО === */
