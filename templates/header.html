@@ -372,12 +372,15 @@ document.addEventListener('DOMContentLoaded', function(){
         script.setAttribute('data-telegram-login', 'Chromosome47bot');
         script.setAttribute('data-size', 'large');
         script.setAttribute('data-radius', '20');
-        script.setAttribute('data-onauth', 'onTelegramAuth');
         script.setAttribute('data-request-access', 'write');
         
-        // Optional: Add redirect URL (uncomment if you want redirect instead of callback)
-        // const currentUrl = window.location.origin + window.location.pathname;
-        // script.setAttribute('data-auth-url', currentUrl);
+        // Use redirect URL for better UX - redirects to dashboard after auth
+        // Telegram will add hash with user data to the URL: #id=...&first_name=...&hash=...
+        const authUrl = window.location.origin + '/';
+        script.setAttribute('data-auth-url', authUrl);
+        
+        // Also set callback for handling auth data (works if user stays on page)
+        script.setAttribute('data-onauth', 'onTelegramAuth');
         
         script.onload = function() {
             // Remove loading indicator when script loads
@@ -399,7 +402,7 @@ document.addEventListener('DOMContentLoaded', function(){
         container.appendChild(script);
     }
     
-    // Telegram auth callback
+    // Telegram auth callback (used when data-onauth is set and user stays on page)
     window.onTelegramAuth = function(user) {
         console.log('Telegram auth callback received:', user);
         
@@ -409,103 +412,16 @@ document.addEventListener('DOMContentLoaded', function(){
             return;
         }
         
-        const playerName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
-        const telegramUsername = user.username || '';
-        const telegramId = user.id.toString();
-        
-        // Show loading state
-        const container = document.getElementById('telegram-widget-container');
-        if (container) {
-            container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--accent-soft); font-size: 1.4vh;">⏳ Обработка регистрации...</div>';
-        }
-        
-        localStorage.setItem('pulse_player_name', playerName);
-        localStorage.setItem('pulse_telegram_id', telegramId);
-        if (telegramUsername) {
-            localStorage.setItem('pulse_telegram_username', telegramUsername);
-        }
-        
-        // Save user to database for mailing list
-        fetch('/api/telegram/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                telegram_id: telegramId,
-                first_name: user.first_name,
-                last_name: user.last_name || '',
-                username: telegramUsername,
-                language_code: user.language_code || '',
-                is_bot: user.is_bot || false,
-                registration_source: 'telegram_widget'
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.ok) {
-                console.log('User registered successfully:', data);
-                
-                // Close profile modal
-                const modal = document.getElementById('profile-modal');
-                const backdrop = document.getElementById('profile-backdrop');
-                if (modal) modal.classList.remove('active');
-                if (backdrop) backdrop.classList.remove('active');
-                
-                // Check if offer needs to be accepted
-                if (!data.offer_accepted) {
-                    // Show offer modal
-                    const offerModal = document.getElementById('offer-modal') || document.getElementById('offer-modal-header');
-                    if (offerModal) {
-                        offerModal.style.display = 'block';
-                        offerModal.classList.add('active');
-                    } else {
-                        // If modal not found, redirect to dashboard
-                        window.location.href = '/';
-                    }
-                } else if (!data.game_nickname) {
-                    // Show nickname modal (only on dashboard)
-                    const nicknameModal = document.getElementById('nickname-modal');
-                    if (nicknameModal) {
-                        nicknameModal.classList.add('active');
-                    } else {
-                        // If not on dashboard, redirect to dashboard
-                        window.location.href = '/';
-                    }
-                } else {
-                    // Registration complete - show success message
-                    const successMsg = `✅ Регистрация выполнена!\n\nИмя: ${playerName}\nTelegram ID: ${telegramId}${telegramUsername ? '\nUsername: @' + telegramUsername : ''}`;
-                    alert(successMsg);
-                    
-                    // Reload profile data
-                    loadProfileData();
-                    
-                    // Reload page if on dashboard to update UI
-                    if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
-                        window.location.reload();
-                    }
-                }
-            } else {
-                throw new Error(data.error || 'Unknown error');
-            }
-        })
-        .catch(error => {
-            console.error('Error during Telegram registration:', error);
-            
-            // Restore widget on error
-            if (container) {
-                container.innerHTML = '';
-                initTelegramWidget();
-            }
-            
-            alert('Ошибка при регистрации: ' + error.message + '\n\nПожалуйста, попробуйте еще раз.');
-        });
+        // Use the same processing function
+        processTelegramAuth(user);
     };
+    
+    // Check for Telegram auth redirect on page load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', handleTelegramAuthRedirect);
+    } else {
+        handleTelegramAuthRedirect();
+    }
     
     if (profileToggle && profileModal) {
         profileToggle.addEventListener('click', function() {
