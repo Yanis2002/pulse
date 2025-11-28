@@ -1320,16 +1320,26 @@ def api_export_telegram_users():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@app.route("/api/telegram/webhook", methods=["POST"])
+@app.route("/api/telegram/webhook", methods=["POST", "GET"])
 def api_telegram_webhook():
     """Webhook endpoint for Telegram bot updates."""
     if not TELEGRAM_BOT_TOKEN:
+        print("TELEGRAM_BOT_TOKEN not configured")
         return jsonify({"ok": False, "error": "bot token not configured"}), 500
     
     try:
-        update = request.get_json()
+        # Telegram sends updates as JSON in POST body
+        if request.method == "POST":
+            update = request.get_json()
+        else:
+            # GET request - return info
+            return jsonify({"ok": True, "message": "Webhook endpoint is active"})
+        
         if not update:
+            print("No update data received")
             return jsonify({"ok": False, "error": "no data"}), 400
+        
+        print(f"Received Telegram update: {json.dumps(update, indent=2)}")
         
         # Handle message updates
         if "message" in update:
@@ -1345,6 +1355,8 @@ def api_telegram_webhook():
                 language_code = user.get("language_code", "")
                 is_bot = user.get("is_bot", False)
                 
+                print(f"Saving Telegram user: {telegram_id}, {first_name}, {username}")
+                
                 # Save user to database
                 try:
                     with get_db() as db:
@@ -1353,18 +1365,23 @@ def api_telegram_webhook():
                             (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active)
                             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                         """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot"))
+                        db.commit()
+                    print(f"User {telegram_id} saved successfully")
                 except Exception as e:
                     print(f"Error saving Telegram user: {e}")
+                    import traceback
+                    traceback.print_exc()
                 
                 # Handle /start command
                 if message.get("text") and message["text"].startswith("/start"):
                     try:
                         welcome_text = "🎰 Добро пожаловать в PULSE | CLUB!\n\nВы будете получать уведомления о предстоящих турнирах и событиях."
                         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-                        requests.post(url, json={
+                        response = requests.post(url, json={
                             "chat_id": chat_id,
                             "text": welcome_text
                         }, timeout=5)
+                        print(f"Welcome message sent: {response.json()}")
                     except Exception as e:
                         print(f"Error sending welcome message: {e}")
         
@@ -1393,11 +1410,17 @@ def api_setup_webhook():
         return jsonify({"ok": False, "error": "webhook_url required"}), 400
     
     try:
+        # Telegram API requires GET request with URL parameter
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook"
-        response = requests.post(url, json={"url": webhook_url}, timeout=10)
+        params = {"url": webhook_url}
+        response = requests.get(url, params=params, timeout=10)
         result = response.json()
+        print(f"Telegram setWebhook response: {result}")
         return jsonify({"ok": result.get("ok", False), "result": result})
     except Exception as e:
+        print(f"Error setting webhook: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
