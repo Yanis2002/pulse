@@ -11,28 +11,11 @@ import subprocess
 
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
-
-# Telegram imports - optional, only if token is provided
-try:
-    from telegram import Bot, Update
-    from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-    TELEGRAM_AVAILABLE = True
-except ImportError as e:
-    import sys
-    print(f"Warning: python-telegram-bot not available, Telegram features disabled: {e}", file=sys.stderr)
-    TELEGRAM_AVAILABLE = False
-    # Create dummy classes to avoid NameError
-    class Bot:
-        def __init__(self, *args, **kwargs):
-            pass
-    class Update:
-        @staticmethod
-        def de_json(*args, **kwargs):
-            return None
+import requests
 
 
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "local-admin")
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8574583723:AAHGnyANIA7z_7yPftV1q_HBoYWH4XkMVnI")
 
 BASE_LEVELS = [
     {"sb": 100, "bb": 200, "minutes": 12, "breakMinutes": 0},
@@ -1340,48 +1323,50 @@ def api_export_telegram_users():
 @app.route("/api/telegram/webhook", methods=["POST"])
 def api_telegram_webhook():
     """Webhook endpoint for Telegram bot updates."""
-    if not TELEGRAM_AVAILABLE:
-        return jsonify({"ok": False, "error": "telegram library not available"}), 500
     if not TELEGRAM_BOT_TOKEN:
         return jsonify({"ok": False, "error": "bot token not configured"}), 500
     
     try:
-        update_data = request.get_json()
-        if not update_data:
+        update = request.get_json()
+        if not update:
             return jsonify({"ok": False, "error": "no data"}), 400
         
-        update = Update.de_json(update_data, Bot(TELEGRAM_BOT_TOKEN))
-        
-        if update.message:
-            user = update.message.from_user
-            chat_id = update.message.chat_id
+        # Handle message updates
+        if "message" in update:
+            message = update["message"]
+            user = message.get("from")
+            chat_id = message.get("chat", {}).get("id")
             
-            # Save user to database
-            with get_db() as db:
-                db.execute("""
-                    INSERT OR REPLACE INTO telegram_users 
-                    (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                """, (
-                    str(user.id),
-                    user.first_name or "",
-                    user.last_name or "",
-                    user.username or None,
-                    user.language_code or None,
-                    user.is_bot or False,
-                    "telegram_bot"
-                ))
-            
-            # Handle /start command
-            if update.message.text and update.message.text.startswith("/start"):
-                bot = Bot(TELEGRAM_BOT_TOKEN)
+            if user and chat_id:
+                telegram_id = str(user.get("id"))
+                first_name = user.get("first_name", "")
+                last_name = user.get("last_name", "")
+                username = user.get("username", "")
+                language_code = user.get("language_code", "")
+                is_bot = user.get("is_bot", False)
+                
+                # Save user to database
                 try:
-                    bot.send_message(
-                        chat_id=chat_id,
-                        text="🎰 Добро пожаловать в PULSE | CLUB!\n\nВы будете получать уведомления о предстоящих турнирах и событиях."
-                    )
+                    with get_db() as db:
+                        db.execute("""
+                            INSERT OR REPLACE INTO telegram_users 
+                            (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot"))
                 except Exception as e:
-                    print(f"Error sending welcome message: {e}")
+                    print(f"Error saving Telegram user: {e}")
+                
+                # Handle /start command
+                if message.get("text") and message["text"].startswith("/start"):
+                    try:
+                        welcome_text = "🎰 Добро пожаловать в PULSE | CLUB!\n\nВы будете получать уведомления о предстоящих турнирах и событиях."
+                        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+                        requests.post(url, json={
+                            "chat_id": chat_id,
+                            "text": welcome_text
+                        }, timeout=5)
+                    except Exception as e:
+                        print(f"Error sending welcome message: {e}")
         
         return jsonify({"ok": True})
     except Exception as e:
@@ -1394,8 +1379,6 @@ def api_telegram_webhook():
 @app.route("/api/telegram/setup-webhook", methods=["POST"])
 def api_setup_webhook():
     """Setup Telegram webhook (admin only)."""
-    if not TELEGRAM_AVAILABLE:
-        return jsonify({"ok": False, "error": "telegram library not available"}), 500
     data = request.get_json() or {}
     token = data.get("token", "")
     webhook_url = data.get("webhook_url", "").strip()
@@ -1410,9 +1393,10 @@ def api_setup_webhook():
         return jsonify({"ok": False, "error": "webhook_url required"}), 400
     
     try:
-        bot = Bot(TELEGRAM_BOT_TOKEN)
-        result = bot.set_webhook(url=webhook_url)
-        return jsonify({"ok": True, "result": result})
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook"
+        response = requests.post(url, json={"url": webhook_url}, timeout=10)
+        result = response.json()
+        return jsonify({"ok": result.get("ok", False), "result": result})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -1420,8 +1404,6 @@ def api_setup_webhook():
 @app.route("/api/telegram/broadcast", methods=["POST"])
 def api_telegram_broadcast():
     """Send broadcast message to all registered users (admin only)."""
-    if not TELEGRAM_AVAILABLE:
-        return jsonify({"ok": False, "error": "telegram library not available"}), 500
     data = request.get_json() or {}
     token = data.get("token", "")
     message = data.get("message", "").strip()
@@ -1436,8 +1418,6 @@ def api_telegram_broadcast():
         return jsonify({"ok": False, "error": "message required"}), 400
     
     try:
-        bot = Bot(TELEGRAM_BOT_TOKEN)
-        
         with get_db() as db:
             users = db.execute("""
                 SELECT telegram_id FROM telegram_users
@@ -1448,14 +1428,21 @@ def api_telegram_broadcast():
         error_count = 0
         errors = []
         
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        
         for user in users:
             try:
-                bot.send_message(
-                    chat_id=int(user["telegram_id"]),
-                    text=message,
-                    parse_mode="HTML"
-                )
-                success_count += 1
+                response = requests.post(url, json={
+                    "chat_id": int(user["telegram_id"]),
+                    "text": message,
+                    "parse_mode": "HTML"
+                }, timeout=5)
+                
+                if response.json().get("ok"):
+                    success_count += 1
+                else:
+                    error_count += 1
+                    errors.append(f"User {user['telegram_id']}: {response.json().get('description', 'unknown error')}")
             except Exception as e:
                 error_count += 1
                 errors.append(f"User {user['telegram_id']}: {str(e)}")
@@ -1606,7 +1593,6 @@ update_players_from_list(default_players)
 try:
     init_db()
     print("Database initialized successfully")
-    print(f"Database path: {DB_PATH}")
 except Exception as e:
     print(f"Error initializing database: {e}")
     import traceback
@@ -1621,15 +1607,6 @@ except Exception as e:
     print(f"Error starting timer thread: {e}")
     import traceback
     traceback.print_exc()
-
-# Log startup info (force output to stderr for Railway logs)
-import sys
-print(f"Flask app initialized", file=sys.stderr)
-print(f"SocketIO async_mode: eventlet", file=sys.stderr)
-print(f"DB_DIR: {DB_DIR}", file=sys.stderr)
-print(f"DB_PATH: {DB_PATH}", file=sys.stderr)
-print(f"PORT: {os.environ.get('PORT', 'not set')}", file=sys.stderr)
-sys.stderr.flush()
 
 def kill_existing_port(port=8000):
     # Убиваем все процессы, использующие порт

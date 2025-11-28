@@ -684,6 +684,7 @@
             .root{
                 padding: 1.5vh 4vw 2.5vh;
                 min-height: 100vh;
+                position: relative;
             }
             
             .top-bar{
@@ -697,21 +698,26 @@
                 align-items: center;
                 gap: 2vh;
                 width: 100%;
+                position: relative;
+                z-index: 1;
             }
             
             .blind-card{
                 width: 90vw;
                 max-width: 100%;
+                position: relative;
+                z-index: 1;
             }
             
             .col-left{
-                position: static;
+                position: relative;
                 flex-direction: row;
                 flex-wrap: wrap;
                 gap: 1.5vh 2vw;
                 padding: 0;
                 margin-bottom: 2vh;
                 width: 100%;
+                z-index: 2;
             }
             
             .main{
@@ -719,6 +725,13 @@
                 justify-content: flex-start;
                 gap: 3vh;
                 align-items: center;
+                position: relative;
+                z-index: 1;
+            }
+            
+            .col-center{
+                position: relative;
+                z-index: 2;
             }
             
             .timer-wrapper{
@@ -726,6 +739,8 @@
                 height: 50vw;
                 max-width: 280px;
                 max-height: 280px;
+                position: relative;
+                z-index: 2;
             }
             
             .timer-value{
@@ -738,6 +753,25 @@
             
             .blind-label {
                 font-size: 2.2vh !important;
+            }
+            
+            .bottom{
+                position: relative;
+                z-index: 1;
+                margin-top: 2vh;
+            }
+            
+            .legal-note{
+                position: relative;
+                z-index: 0;
+            }
+            
+            .control-panel{
+                z-index: 10001;
+            }
+            
+            .panel-backdrop{
+                z-index: 10000;
             }
         }
         
