@@ -1093,10 +1093,11 @@ $(document).ready(function() {
                 return;
             }
             
+            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
             $.ajax({
                 url: `/api/poker-tournament/${date}`,
                 method: 'GET',
-                data: { token: ADMIN_TOKEN },
+                data: { token: ADMIN_TOKEN, telegram_username: telegramUsername },
                 dataType: 'json'
             })
                 .done(function(data) {
@@ -1203,13 +1204,13 @@ $(document).ready(function() {
                 url: `/api/poker-tournament/${date}/player`,
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({
+                data: JSON.stringify(addAdminData({
                     token: ADMIN_TOKEN,
                     player_name: playerName,
                     event_id: eventId,
                     action: action,
                     place: place
-                })
+                }))
             })
             .done(function(data) {
                 if (data.ok) {
@@ -1226,8 +1227,9 @@ $(document).ready(function() {
         
         // Load Telegram users
         $("#load-telegram-users").on("click", function() {
+            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
             $.ajax({
-                url: `/api/telegram/users?token=${ADMIN_TOKEN}`,
+                url: `/api/telegram/users?token=${ADMIN_TOKEN}&telegram_username=${encodeURIComponent(telegramUsername)}`,
                 method: 'GET'
             })
             .done(function(data) {
@@ -1301,7 +1303,8 @@ $(document).ready(function() {
         
         // Export Telegram users
         $("#export-telegram-users").on("click", function() {
-            window.location.href = `/api/telegram/users/export?token=${ADMIN_TOKEN}`;
+            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+            window.location.href = `/api/telegram/users/export?token=${ADMIN_TOKEN}&telegram_username=${encodeURIComponent(telegramUsername)}`;
         });
         
         // Setup webhook
@@ -1318,10 +1321,10 @@ $(document).ready(function() {
                 url: '/api/telegram/setup-webhook',
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({
+                data: JSON.stringify(addAdminData({
                     token: ADMIN_TOKEN,
                     webhook_url: webhookUrl
-                })
+                }))
             })
             .done(function(data) {
                 if (data.ok && data.result && data.result.ok) {
@@ -1359,10 +1362,10 @@ $(document).ready(function() {
                 url: '/api/telegram/broadcast',
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({
+                data: JSON.stringify(addAdminData({
                     token: ADMIN_TOKEN,
                     message: message
-                })
+                }))
             })
             .done(function(data) {
                 if (data.ok) {
@@ -1415,10 +1418,10 @@ $(document).ready(function() {
                 url: `/api/poker-tournament/${date}/finalize`,
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({
+                data: JSON.stringify(addAdminData({
                     token: ADMIN_TOKEN,
                     event_id: currentEventId
-                })
+                }))
             })
             .done(function(data) {
                 if (data.ok) {
@@ -1580,11 +1583,11 @@ $(document).ready(function() {
                 url: `/api/tournament/${currentTournamentId}/bounty`,
                 method: "POST",
                 contentType: "application/json",
-                data: JSON.stringify({
+                data: JSON.stringify(addAdminData({
                     token: ADMIN_TOKEN,
                     player_id: playerId,
                     bounty: newValue
-                })
+                }))
             }).done(function() {
                 editingCell.text(newValue);
                 loadTournamentData();
@@ -1594,12 +1597,12 @@ $(document).ready(function() {
                 url: `/api/tournament/${currentTournamentId}/score`,
                 method: "POST",
                 contentType: "application/json",
-                data: JSON.stringify({
+                data: JSON.stringify(addAdminData({
                     token: ADMIN_TOKEN,
                     player_id: playerId,
                     game_number: gameNumber,
                     score: newValue
-                })
+                }))
             }).done(function() {
                 editingCell.text(newValue || '');
                 loadTournamentData();

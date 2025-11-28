@@ -1320,12 +1320,14 @@
                 return;
             }
             
+            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
             $.ajax({
                 url: '/api/events',
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({
                     token: ADMIN_TOKEN,
+                    telegram_username: telegramUsername,
                     date: dateKey,
                     time: time,
                     event_type: eventType,
@@ -1760,12 +1762,14 @@
         }
 
         function deleteEvent(eventId) {
+            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
             $.ajax({
                 url: `/api/events/${eventId}`,
                 method: 'DELETE',
                 contentType: 'application/json',
                 data: JSON.stringify({
-                    token: ADMIN_TOKEN
+                    token: ADMIN_TOKEN,
+                    telegram_username: telegramUsername
                 })
             })
             .done(function(data) {
