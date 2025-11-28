@@ -1292,11 +1292,24 @@ default_players = [
 update_players_from_list(default_players)
 
 
-timer_thread = threading.Thread(target=timer_loop, daemon=True)
-timer_thread.start()
+# Initialize database on startup (with error handling)
+try:
+    init_db()
+    print("Database initialized successfully")
+except Exception as e:
+    print(f"Error initializing database: {e}")
+    import traceback
+    traceback.print_exc()
 
-# Initialize database on startup
-init_db()
+# Start timer thread (with error handling)
+try:
+    timer_thread = threading.Thread(target=timer_loop, daemon=True)
+    timer_thread.start()
+    print("Timer thread started successfully")
+except Exception as e:
+    print(f"Error starting timer thread: {e}")
+    import traceback
+    traceback.print_exc()
 
 def kill_existing_port(port=8000):
     # Убиваем все процессы, использующие порт
