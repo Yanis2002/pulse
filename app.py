@@ -610,9 +610,10 @@ def api_get_tournaments():
 def api_update_score(tournament_id):
     """Update a single score cell."""
     data = request.get_json() or {}
-    token = data.get("token", "")
-    if token != ADMIN_TOKEN:
-        return jsonify({"ok": False, "error": "invalid token"}), 403
+    try:
+        require_admin(data)
+    except PermissionError:
+        return jsonify({"ok": False, "error": "invalid token or not admin"}), 403
     
     player_id = data.get("player_id")
     game_number = data.get("game_number")
@@ -639,9 +640,10 @@ def api_update_score(tournament_id):
 def api_update_bounty(tournament_id):
     """Update player bounty."""
     data = request.get_json() or {}
-    token = data.get("token", "")
-    if token != ADMIN_TOKEN:
-        return jsonify({"ok": False, "error": "invalid token"}), 403
+    try:
+        require_admin(data)
+    except PermissionError:
+        return jsonify({"ok": False, "error": "invalid token or not admin"}), 403
     
     player_id = data.get("player_id")
     bounty = data.get("bounty", 0)
@@ -667,9 +669,10 @@ def api_update_bounty(tournament_id):
 def api_add_player():
     """Add a new player."""
     data = request.get_json() or {}
-    token = data.get("token", "")
-    if token != ADMIN_TOKEN:
-        return jsonify({"ok": False, "error": "invalid token"}), 403
+    try:
+        require_admin(data)
+    except PermissionError:
+        return jsonify({"ok": False, "error": "invalid token or not admin"}), 403
     
     name = data.get("name", "").strip()
     if not name:
@@ -780,9 +783,10 @@ def api_get_events():
 def api_create_event():
     """Create a new event (admin only)."""
     data = request.get_json() or {}
-    token = data.get("token", "")
-    if token != ADMIN_TOKEN:
-        return jsonify({"ok": False, "error": "invalid token"}), 403
+    try:
+        require_admin(data)
+    except PermissionError:
+        return jsonify({"ok": False, "error": "invalid token or not admin"}), 403
     
     date = data.get("date", "").strip()
     time = data.get("time", "").strip()
@@ -959,9 +963,10 @@ def api_get_event_players(event_id):
 def api_delete_event(event_id):
     """Delete an event (admin only)."""
     data = request.get_json() or {}
-    token = data.get("token", "")
-    if token != ADMIN_TOKEN:
-        return jsonify({"ok": False, "error": "invalid token"}), 403
+    try:
+        require_admin(data)
+    except PermissionError:
+        return jsonify({"ok": False, "error": "invalid token or not admin"}), 403
     
     try:
         with get_db() as db:
@@ -984,8 +989,11 @@ def api_get_poker_tournament(date):
     """Get poker tournament players for a specific date (admin only)."""
     # Check admin token
     token = request.args.get("token") or (request.get_json() or {}).get("token", "")
-    if token != ADMIN_TOKEN:
-        return jsonify({"ok": False, "error": "invalid token"}), 403
+    telegram_username = request.args.get("telegram_username") or (request.get_json() or {}).get("telegram_username", "")
+    try:
+        require_admin({"token": token, "telegram_username": telegram_username})
+    except PermissionError:
+        return jsonify({"ok": False, "error": "invalid token or not admin"}), 403
     
     try:
         with get_db() as db:
@@ -1052,9 +1060,10 @@ def api_get_poker_tournament(date):
 def api_update_poker_player(date):
     """Update poker tournament player state (rent, elimination, reentry, addon)."""
     data = request.get_json() or {}
-    token = data.get("token", "")
-    if token != ADMIN_TOKEN:
-        return jsonify({"ok": False, "error": "invalid token"}), 403
+    try:
+        require_admin(data)
+    except PermissionError:
+        return jsonify({"ok": False, "error": "invalid token or not admin"}), 403
     
     player_name = data.get("player_name", "").strip()
     event_id = data.get("event_id")
@@ -1177,9 +1186,10 @@ def api_update_poker_player(date):
 def api_finalize_poker_tournament(date):
     """Finalize poker tournament and calculate points based on places."""
     data = request.get_json() or {}
-    token = data.get("token", "")
-    if token != ADMIN_TOKEN:
-        return jsonify({"ok": False, "error": "invalid token"}), 403
+    try:
+        require_admin(data)
+    except PermissionError:
+        return jsonify({"ok": False, "error": "invalid token or not admin"}), 403
     
     event_id = data.get("event_id")
     if not event_id:
@@ -1424,7 +1434,10 @@ def api_get_user_status():
 def api_get_telegram_users():
     """Get list of registered Telegram users (admin only)."""
     token = request.args.get("token", "")
-    if token != ADMIN_TOKEN:
+    telegram_username = request.args.get("telegram_username", "")
+    try:
+        require_admin({"token": token, "telegram_username": telegram_username})
+    except PermissionError:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     
     try:
@@ -1462,7 +1475,10 @@ def api_get_telegram_users():
 def api_export_telegram_users():
     """Export Telegram users as CSV (admin only)."""
     token = request.args.get("token", "")
-    if token != ADMIN_TOKEN:
+    telegram_username = request.args.get("telegram_username", "")
+    try:
+        require_admin({"token": token, "telegram_username": telegram_username})
+    except PermissionError:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     
     try:
@@ -1593,8 +1609,11 @@ def api_setup_webhook():
         
         print(f"Setup webhook request: token={bool(token)}, webhook_url={webhook_url}")
         
-        if token != ADMIN_TOKEN:
-            print(f"Unauthorized: token mismatch")
+        telegram_username = data.get("telegram_username", "")
+        try:
+            require_admin({"token": token, "telegram_username": telegram_username})
+        except PermissionError:
+            print(f"Unauthorized: token mismatch or not admin")
             return jsonify({"ok": False, "error": "unauthorized"}), 401
         
         if not TELEGRAM_BOT_TOKEN:
@@ -1647,9 +1666,12 @@ def api_telegram_broadcast():
     """Send broadcast message to all registered users (admin only)."""
     data = request.get_json() or {}
     token = data.get("token", "")
+    telegram_username = data.get("telegram_username", "")
     message = data.get("message", "").strip()
     
-    if token != ADMIN_TOKEN:
+    try:
+        require_admin({"token": token, "telegram_username": telegram_username})
+    except PermissionError:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     
     if not TELEGRAM_BOT_TOKEN:
@@ -1711,9 +1733,30 @@ def api_telegram_broadcast():
 
 
 def require_admin(data):
+    """Check admin access - either by token or Telegram username."""
     token = (data or {}).get("token", "")
-    if token != ADMIN_TOKEN:
-        raise PermissionError("invalid token")
+    telegram_username = (data or {}).get("telegram_username", "")
+    
+    # Check token first (for backward compatibility)
+    if token == ADMIN_TOKEN:
+        return True
+    
+    # Check Telegram username
+    if telegram_username and check_is_admin(telegram_username):
+        return True
+    
+    raise PermissionError("invalid token or not admin")
+
+
+@app.route("/api/telegram/check-admin", methods=["GET"])
+def api_check_admin():
+    """Check if Telegram username is admin."""
+    username = request.args.get("username", "").strip()
+    if not username:
+        return jsonify({"ok": False, "is_admin": False}), 400
+    
+    is_admin = check_is_admin(username)
+    return jsonify({"ok": True, "is_admin": is_admin})
 
 
 @socketio.on("connect")
