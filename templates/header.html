@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function(){
         const script = document.createElement('script');
         script.async = true;
         script.src = 'https://telegram.org/js/telegram-widget.js?22';
-        script.setAttribute('data-telegram-login', 'Chromosome47bot');
+        script.setAttribute('data-telegram-login', 'Pulse_Club_bot');
         script.setAttribute('data-size', 'large');
         script.setAttribute('data-radius', '20');
         script.setAttribute('data-onauth', 'onTelegramAuth');
@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function(){
             if (widgetError) {
                 const errorText = widgetError.textContent || '';
                 if (errorText.includes('domain') || errorText.includes('invalid')) {
-                    container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--accent-soft); font-size: 1.3vh; line-height: 1.6;">⚠️ Домен не зарегистрирован в боте.<br><br>Для регистрации домена:<br>1. Откройте @BotFather в Telegram<br>2. Выберите бота <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">Chromosome47bot</code><br>3. Отправьте команду <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">/setdomain</code><br>4. Укажите домен: <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">' + currentDomain + '</code></div>';
+                    container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--accent-soft); font-size: 1.3vh; line-height: 1.6;">⚠️ Домен не зарегистрирован в боте.<br><br>Для регистрации домена:<br>1. Откройте @BotFather в Telegram<br>2. Выберите бота <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">Pulse_Club_bot</code><br>3. Отправьте команду <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">/setdomain</code><br>4. Укажите домен: <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">' + currentDomain + '</code></div>';
                 }
             }
         }, 2000);
