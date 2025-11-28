@@ -19,5 +19,6 @@ COPY . .
 EXPOSE 8000
 
 # Run gunicorn with eventlet (PORT from environment)
-CMD gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-8000} wsgi:application
+# Use shell form to allow environment variable substitution
+CMD ["sh", "-c", "gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-8000} wsgi:application"]
 

@@ -6,7 +6,7 @@ build:
 
 run:
   image: pulse
-  command: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:8000 wsgi:application
+  command: sh -c "gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-8000} wsgi:application"
   containerPort: 8000
 
 env:
