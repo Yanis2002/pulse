@@ -11,8 +11,24 @@ import subprocess
 
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
-from telegram import Bot, Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+
+# Telegram imports - optional, only if token is provided
+try:
+    from telegram import Bot, Update
+    from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+    TELEGRAM_AVAILABLE = True
+except ImportError as e:
+    import sys
+    print(f"Warning: python-telegram-bot not available, Telegram features disabled: {e}", file=sys.stderr)
+    TELEGRAM_AVAILABLE = False
+    # Create dummy classes to avoid NameError
+    class Bot:
+        def __init__(self, *args, **kwargs):
+            pass
+    class Update:
+        @staticmethod
+        def de_json(*args, **kwargs):
+            return None
 
 
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "local-admin")
@@ -1324,6 +1340,8 @@ def api_export_telegram_users():
 @app.route("/api/telegram/webhook", methods=["POST"])
 def api_telegram_webhook():
     """Webhook endpoint for Telegram bot updates."""
+    if not TELEGRAM_AVAILABLE:
+        return jsonify({"ok": False, "error": "telegram library not available"}), 500
     if not TELEGRAM_BOT_TOKEN:
         return jsonify({"ok": False, "error": "bot token not configured"}), 500
     
@@ -1376,6 +1394,8 @@ def api_telegram_webhook():
 @app.route("/api/telegram/setup-webhook", methods=["POST"])
 def api_setup_webhook():
     """Setup Telegram webhook (admin only)."""
+    if not TELEGRAM_AVAILABLE:
+        return jsonify({"ok": False, "error": "telegram library not available"}), 500
     data = request.get_json() or {}
     token = data.get("token", "")
     webhook_url = data.get("webhook_url", "").strip()
@@ -1400,6 +1420,8 @@ def api_setup_webhook():
 @app.route("/api/telegram/broadcast", methods=["POST"])
 def api_telegram_broadcast():
     """Send broadcast message to all registered users (admin only)."""
+    if not TELEGRAM_AVAILABLE:
+        return jsonify({"ok": False, "error": "telegram library not available"}), 500
     data = request.get_json() or {}
     token = data.get("token", "")
     message = data.get("message", "").strip()
@@ -1584,6 +1606,7 @@ update_players_from_list(default_players)
 try:
     init_db()
     print("Database initialized successfully")
+    print(f"Database path: {DB_PATH}")
 except Exception as e:
     print(f"Error initializing database: {e}")
     import traceback
@@ -1598,6 +1621,15 @@ except Exception as e:
     print(f"Error starting timer thread: {e}")
     import traceback
     traceback.print_exc()
+
+# Log startup info (force output to stderr for Railway logs)
+import sys
+print(f"Flask app initialized", file=sys.stderr)
+print(f"SocketIO async_mode: eventlet", file=sys.stderr)
+print(f"DB_DIR: {DB_DIR}", file=sys.stderr)
+print(f"DB_PATH: {DB_PATH}", file=sys.stderr)
+print(f"PORT: {os.environ.get('PORT', 'not set')}", file=sys.stderr)
+sys.stderr.flush()
 
 def kill_existing_port(port=8000):
     # Убиваем все процессы, использующие порт
