@@ -52,7 +52,8 @@ state_lock = threading.Lock()
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "pulse-timer-secret")
-socketio = SocketIO(app, async_mode="threading", cors_allowed_origins="*")
+# Use eventlet async_mode for production with gunicorn
+socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
 
 DB_PATH = "pulse_tournaments.db"
 
