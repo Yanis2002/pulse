@@ -2532,27 +2532,50 @@ def api_telegram_broadcast():
 
 
 def require_admin(data):
-    """Check admin access - either by token or Telegram username."""
+    """Check admin access - either by token, telegram_id, or game_nickname."""
     token = (data or {}).get("token", "")
+    telegram_id = (data or {}).get("telegram_id", "")
     telegram_username = (data or {}).get("telegram_username", "")
+    game_nickname = (data or {}).get("game_nickname", "")
     
-    print(f"🔐 require_admin called: token={bool(token)}, telegram_username='{telegram_username}'")
+    print(f"🔐 require_admin called: token={bool(token)}, telegram_id='{telegram_id}', telegram_username='{telegram_username}', game_nickname='{game_nickname}'")
     
     # Check token first (for backward compatibility)
     if token == ADMIN_TOKEN:
         print("✅ Admin access granted via token")
         return True
     
-    # Check Telegram username
-    if telegram_username:
-        is_admin = check_is_admin(telegram_username)
+    # Check by telegram_id (preferred method)
+    if telegram_id:
+        is_admin = check_is_admin(telegram_id=telegram_id)
         if is_admin:
-            print("✅ Admin access granted via Telegram username")
+            print("✅ Admin access granted via telegram_id")
             return True
         else:
-            print(f"❌ Telegram username '{telegram_username}' is not admin")
-    else:
-        print("❌ No telegram_username provided")
+            print(f"❌ telegram_id '{telegram_id}' is not admin")
+    
+    # Check by game_nickname
+    if game_nickname:
+        is_admin = check_is_admin(game_nickname=game_nickname)
+        if is_admin:
+            print("✅ Admin access granted via game_nickname")
+            return True
+        else:
+            print(f"❌ game_nickname '{game_nickname}' is not admin")
+    
+    # Check by telegram_username (for backward compatibility - try to get game_nickname from DB)
+    if telegram_username:
+        try:
+            with get_db() as db:
+                user = db.execute("SELECT game_nickname FROM telegram_users WHERE username = ?", (telegram_username.replace('@', ''),)).fetchone()
+                if user and user["game_nickname"]:
+                    is_admin = check_is_admin(game_nickname=user["game_nickname"])
+                    if is_admin:
+                        print("✅ Admin access granted via Telegram username (resolved to game_nickname)")
+                        return True
+        except Exception as e:
+            print(f"⚠️ Error checking admin by telegram_username: {e}")
+        print(f"❌ Telegram username '{telegram_username}' is not admin")
     
     print("❌ Permission denied - invalid token or not admin")
     raise PermissionError("invalid token or not admin")

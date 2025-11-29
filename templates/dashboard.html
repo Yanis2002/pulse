@@ -1240,14 +1240,14 @@
                 return;
             }
             
-            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+            const telegramId = localStorage.getItem('pulse_telegram_id') || '';
             $.ajax({
                 url: '/api/events',
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({
                     token: ADMIN_TOKEN,
-                    telegram_username: telegramUsername,
+                    telegram_id: telegramId,
                     date: dateKey,
                     time: time,
                     event_type: eventType,
