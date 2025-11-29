@@ -1253,11 +1253,22 @@ def api_register_event(event_id):
     telegram_id = data.get("telegram_id", "").strip()
     game_nickname = data.get("game_nickname", "").strip()
     
+    # Authorization is based on telegram_id - it must be present
+    if not telegram_id:
+        return jsonify({"ok": False, "error": "telegram_id required for authorization"}), 400
+    
+    # Check if user exists in database (authorization check)
+    try:
+        with get_db() as db:
+            user = db.execute("SELECT telegram_id FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if not user:
+                return jsonify({"ok": False, "error": "User not authorized. Please register via Telegram bot (/start)"}), 401
+    except Exception as e:
+        print(f"Error checking user authorization: {e}")
+        return jsonify({"ok": False, "error": "Authorization check failed"}), 500
+    
     if not player_name:
         return jsonify({"ok": False, "error": "player_name required"}), 400
-    
-    if not telegram_username and not telegram_id:
-        return jsonify({"ok": False, "error": "telegram_username or telegram_id required"}), 400
     
     if not game_nickname:
         return jsonify({"ok": False, "error": "game_nickname required"}), 400
