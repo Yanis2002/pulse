@@ -480,36 +480,84 @@ document.addEventListener('DOMContentLoaded', function(){
             console.log('Updated profile telegram:', displayText);
         }
         
-        // Check if offer is already accepted BEFORE registering
-        console.log('🔍 Checking offer status before registration...');
-        checkOfferAndRegister(user);
+        // First register user in database, then check offer status
+        console.log('📝 Registering user first, then checking offer status...');
+        registerUserThenCheckOffer(user);
     };
     
-    // Check offer status and proceed with registration only if accepted
-    function checkOfferAndRegister(user) {
+    // Register user first, then check offer status
+    function registerUserThenCheckOffer(user) {
         const telegramId = user.id.toString();
+        const playerName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+        const telegramUsername = user.username || '';
         
-        // Check user status from server
-        fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
-            .then(response => response.json())
-            .then(data => {
-                console.log('📋 User status from server:', data);
-                
-                if (data.ok && data.offer_accepted) {
-                    // Offer already accepted, proceed with registration
-                    console.log('✅ Offer already accepted, proceeding with registration');
-                    processTelegramAuth(user);
+        const registrationData = {
+            telegram_id: telegramId,
+            first_name: user.first_name || '',
+            last_name: user.last_name || '',
+            username: telegramUsername,
+            language_code: user.language_code || 'ru',
+            is_bot: false,
+            registration_source: 'telegram_widget'
+        };
+        
+        console.log('📤 Registering user in database:', registrationData);
+        
+        // Register user on server first
+        fetch('/api/telegram/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(registrationData)
+        })
+        .then(response => {
+            console.log('Registration response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('✅ User registered in database:', data);
+            
+            // Now check offer status
+            return fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`);
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('📋 User status from server:', data);
+            
+            if (data.ok && data.offer_accepted) {
+                // Offer already accepted, proceed with nickname check
+                console.log('✅ Offer already accepted');
+                if (!data.game_nickname) {
+                    // Show nickname modal
+                    console.log('📋 No nickname set, showing nickname modal');
+                    const nicknameModal = document.getElementById('nickname-modal');
+                    if (nicknameModal) {
+                        nicknameModal.style.display = 'block';
+                        nicknameModal.classList.add('active');
+                    }
                 } else {
-                    // Offer not accepted, show offer modal first
-                    console.log('📋 Offer not accepted, showing offer modal');
-                    showOfferModal(user);
+                    // All set
+                    console.log('✅ All set, user is ready');
+                    loadProfileData();
+                    if (telegramId && typeof checkAdminStatus === 'function') {
+                        checkAdminStatus(telegramId);
+                    }
                 }
-            })
-            .catch(error => {
-                console.error('❌ Error checking user status:', error);
-                // If error, assume new user and show offer
+            } else {
+                // Offer not accepted, show offer modal
+                console.log('📋 Offer not accepted, showing offer modal');
                 showOfferModal(user);
-            });
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error during registration or status check:', error);
+            // If registration fails, still try to show offer modal
+            showOfferModal(user);
+        });
     }
     
     // Show offer modal and handle acceptance
