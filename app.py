@@ -2160,44 +2160,73 @@ def api_telegram_webhook():
                 language_code = user.get("language_code", "")
                 is_bot = user.get("is_bot", False)
                 
-                print(f"📥 Saving Telegram user: {telegram_id}, {first_name}, {username}")
-                
-                # Save user to database (preserve offer_accepted and game_nickname if exists)
-                try:
-                    with get_db() as db:
-                        # Check if user exists
-                        existing = db.execute(
-                            "SELECT offer_accepted, game_nickname FROM telegram_users WHERE telegram_id = ?",
-                            (telegram_id,)
-                        ).fetchone()
-                        
-                        if existing:
-                            print(f"✅ User {telegram_id} already exists, updating...")
-                            # Update user but preserve offer_accepted and game_nickname
-                            db.execute("""
-                                UPDATE telegram_users 
-                                SET first_name = ?, last_name = ?, username = ?, language_code = ?, 
-                                    is_bot = ?, registration_source = ?, last_active = CURRENT_TIMESTAMP
-                                WHERE telegram_id = ?
-                            """, (first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot", telegram_id))
-                        else:
-                            print(f"✅ New user {telegram_id}, inserting...")
-                            # New user
-                            db.execute("""
-                                INSERT INTO telegram_users 
-                                (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active, offer_accepted)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0)
-                            """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot"))
-                        
-                        db.commit()
-                        print(f"✅ User {telegram_id} saved successfully to database")
-                except Exception as e:
-                    print(f"❌ Error saving Telegram user: {e}")
-                    import traceback
-                    traceback.print_exc()
-                
-                # Handle /start command
+                # Handle /start command - register user in the same database as website
                 if message.get("text") and message["text"].startswith("/start"):
+                    print(f"📥 /start command received from user: {telegram_id}, {first_name}, {username}")
+                    
+                    # Register user to database using the same logic as website
+                    # This ensures bot and website use the same database
+                    try:
+                        with get_db() as db:
+                            # Ensure telegram_users table exists (same as website)
+                            try:
+                                db.execute("SELECT 1 FROM telegram_users LIMIT 1")
+                            except sqlite3.OperationalError:
+                                print("telegram_users table does not exist, creating it...")
+                                db.execute("""
+                                    CREATE TABLE IF NOT EXISTS telegram_users (
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        telegram_id TEXT NOT NULL UNIQUE,
+                                        first_name TEXT NOT NULL,
+                                        last_name TEXT,
+                                        username TEXT,
+                                        language_code TEXT,
+                                        is_bot BOOLEAN DEFAULT 0,
+                                        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                        last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                        registration_source TEXT DEFAULT 'telegram_widget',
+                                        offer_accepted BOOLEAN DEFAULT 0,
+                                        offer_accepted_at TIMESTAMP,
+                                        game_nickname TEXT
+                                    )
+                                """)
+                                db.commit()
+                                print("telegram_users table created successfully")
+                            
+                            # Check if user exists to preserve offer_accepted and game_nickname
+                            existing = db.execute(
+                                "SELECT offer_accepted, game_nickname FROM telegram_users WHERE telegram_id = ?",
+                                (telegram_id,)
+                            ).fetchone()
+                            
+                            if existing:
+                                print(f"✅ User {telegram_id} already exists, updating...")
+                                # Update user but preserve offer_accepted and game_nickname
+                                db.execute("""
+                                    UPDATE telegram_users 
+                                    SET first_name = ?, last_name = ?, username = ?, language_code = ?, 
+                                        is_bot = ?, registration_source = ?, last_active = CURRENT_TIMESTAMP
+                                    WHERE telegram_id = ?
+                                """, (first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot", telegram_id))
+                                offer_accepted = existing["offer_accepted"] if existing["offer_accepted"] else False
+                                game_nickname = existing["game_nickname"] if existing["game_nickname"] else None
+                                print(f"User updated successfully. offer_accepted: {offer_accepted}, game_nickname: {game_nickname}")
+                            else:
+                                print(f"✅ New user {telegram_id}, inserting...")
+                                # New user - same structure as website registration
+                                db.execute("""
+                                    INSERT INTO telegram_users 
+                                    (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active, offer_accepted)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0)
+                                """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot"))
+                                print(f"User inserted successfully")
+                            
+                            db.commit()
+                            print(f"✅ User {telegram_id} registered/updated in database from /start command")
+                    except Exception as e:
+                        print(f"❌ Error saving Telegram user from /start: {e}")
+                        import traceback
+                        traceback.print_exc()
                     try:
                         # Get base URL from environment or use default
                         base_url = os.environ.get("BASE_URL", "https://pulse-390031593512.europe-north1.run.app")
