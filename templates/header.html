@@ -1218,22 +1218,22 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <!-- Offer Modal (available on all pages) -->
 <div class="event-modal" id="offer-modal" style="display: none; z-index: 20000;">
-    <div class="event-modal-content" style="max-width: 85vw; max-width: 900px; max-height: 90vh; overflow-y: auto; background: linear-gradient(135deg, rgba(8, 8, 16, 0.98) 0%, rgba(5, 5, 9, 0.98) 100%); border: 2px solid var(--accent-dim); box-shadow: 0 0 60px rgba(255, 46, 59, 0.4);">
-        <div class="event-modal-header" style="border-bottom: 2px solid var(--accent-dim); padding-bottom: 2vh; margin-bottom: 2vh;">
-            <div class="event-modal-title" style="font-size: 3.5vh; text-shadow: 0 0 30px rgba(255, 46, 59, 0.8);">ПУБЛИЧНАЯ ОФЕРТА</div>
+    <div class="event-modal-content" style="max-width: 85vw; max-width: 900px; max-height: 90vh; overflow-y: auto;">
+        <div class="event-modal-header">
+            <div class="event-modal-title">ПУБЛИЧНАЯ ОФЕРТА</div>
             <button class="event-modal-close" id="offer-modal-close" style="display: none;">&times;</button>
         </div>
         <div style="padding: 2vh 3vw; color: var(--text); line-height: 1.8;">
-            <p style="margin-bottom: 3vh; font-size: 1.8vh; color: var(--text-muted); text-align: center;">
+            <p style="margin-bottom: 2vh; font-size: 1.6vh; color: var(--text-muted); text-align: center;">
                 Для записи на события необходимо ознакомиться и принять публичную оферту.
             </p>
-            <div style="margin-bottom: 3vh; border-radius: 12px; overflow: hidden; box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);">
+            <div style="margin-bottom: 2vh; border-radius: 12px; overflow: hidden; box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);">
                 <iframe src="https://docs.google.com/document/d/1KgkvSh-Vtx4-EyCcaetlIUYkuATmTqS-/preview" 
                         style="width: 100%; height: 55vh; border: none; background: #fff;"></iframe>
             </div>
-            <div style="display: flex; gap: 2vw; margin-top: 3vh;">
-                <button class="event-form-btn event-form-btn-secondary" id="offer-decline" style="flex: 1; padding: 2vh 3vw; font-size: 1.8vh; font-weight: 700; letter-spacing: 0.15em; border: 2px solid rgba(255, 255, 255, 0.3);">Отклонить</button>
-                <button class="event-form-btn event-form-btn-primary" id="offer-accept" style="flex: 1; padding: 2vh 3vw; font-size: 1.8vh; font-weight: 700; letter-spacing: 0.15em; background: linear-gradient(135deg, rgba(255, 46, 59, 0.3) 0%, rgba(204, 26, 37, 0.3) 100%); border: 2px solid var(--accent-soft); box-shadow: 0 0 30px rgba(255, 46, 59, 0.5);">Принять оферту</button>
+            <div style="display: flex; gap: 1vw; margin-top: 2vh;">
+                <button class="event-form-btn event-form-btn-secondary" id="offer-decline" style="flex: 1;">Отклонить</button>
+                <button class="event-form-btn event-form-btn-primary" id="offer-accept" style="flex: 1;">Принять оферту</button>
             </div>
         </div>
     </div>
@@ -1241,25 +1241,24 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <!-- Game Nickname Modal (available on all pages) -->
 <div class="event-modal" id="nickname-modal" style="display: none; z-index: 20001;">
-    <div class="event-modal-content" style="max-width: 600px; background: linear-gradient(135deg, rgba(8, 8, 16, 0.98) 0%, rgba(5, 5, 9, 0.98) 100%); border: 2px solid var(--accent-dim); box-shadow: 0 0 60px rgba(255, 46, 59, 0.4);">
-        <div class="event-modal-header" style="border-bottom: 2px solid var(--accent-dim); padding-bottom: 2vh; margin-bottom: 2vh;">
-            <div class="event-modal-title" style="font-size: 3.5vh; text-shadow: 0 0 30px rgba(255, 46, 59, 0.8);">ИГРОВОЙ НИКНЕЙМ</div>
-            <button class="event-modal-close" id="nickname-modal-close" style="font-size: 3.5vh; width: 4vh; height: 4vh;">&times;</button>
+    <div class="event-modal-content" style="max-width: 500px;">
+        <div class="event-modal-header">
+            <div class="event-modal-title">ИГРОВОЙ НИКНЕЙМ</div>
+            <button class="event-modal-close" id="nickname-modal-close">&times;</button>
         </div>
-        <div style="padding: 3vh 4vw;">
-            <p style="margin-bottom: 3vh; color: var(--text-muted); font-size: 1.6vh; line-height: 1.6; text-align: center;">
-                Введите ваш игровой никнейм для отображения в списке игроков.<br>
-                <span style="font-size: 1.4vh; opacity: 0.8;">Можно использовать буквы, цифры, пробелы и подчеркивания</span>
+        <div style="padding: 2vh;">
+            <p style="margin-bottom: 2vh; color: var(--text-muted); font-size: 1.4vh; text-align: center;">
+                Введите ваш игровой никнейм для отображения в списке игроков.
             </p>
-            <div class="event-form-group" style="margin-bottom: 3vh;">
-                <label class="event-form-label" style="font-size: 1.6vh; margin-bottom: 1.5vh; display: block; color: var(--text-muted); font-weight: 600; letter-spacing: 0.1em;">Игровой никнейм</label>
+            <div class="event-form-group">
+                <label class="event-form-label">Игровой никнейм</label>
                 <input type="text" class="event-form-input" id="game-nickname-input" 
-                       placeholder="Например: 47 R или Player_123" 
-                       maxlength="20" style="width: 100%; padding: 2vh 2vw; font-size: 1.8vh; background: rgba(0, 0, 0, 0.4); border: 2px solid var(--accent-dim); border-radius: 12px; color: var(--text); transition: all 0.3s;">
+                       placeholder="Введите никнейм (2-20 символов)" 
+                       maxlength="20" style="width: 100%;">
             </div>
-            <div style="display: flex; gap: 2vw; margin-top: 3vh;">
-                <button class="event-form-btn event-form-btn-secondary" id="nickname-cancel" style="flex: 1; padding: 2vh 3vw; font-size: 1.8vh; font-weight: 700; letter-spacing: 0.15em; border: 2px solid rgba(255, 255, 255, 0.3);">Отмена</button>
-                <button class="event-form-btn event-form-btn-primary" id="nickname-save" style="flex: 1; padding: 2vh 3vw; font-size: 1.8vh; font-weight: 700; letter-spacing: 0.15em; background: linear-gradient(135deg, rgba(255, 46, 59, 0.3) 0%, rgba(204, 26, 37, 0.3) 100%); border: 2px solid var(--accent-soft); box-shadow: 0 0 30px rgba(255, 46, 59, 0.5);">Сохранить</button>
+            <div style="display: flex; gap: 1vw; margin-top: 2vh;">
+                <button class="event-form-btn event-form-btn-secondary" id="nickname-cancel" style="flex: 1;">Отмена</button>
+                <button class="event-form-btn event-form-btn-primary" id="nickname-save" style="flex: 1;">Сохранить</button>
             </div>
         </div>
     </div>
@@ -1328,8 +1327,8 @@ document.addEventListener('DOMContentLoaded', function(){
         }
         
         // Validate length
-        if (gameNickname.length < 3 || gameNickname.length > 20) {
-            alert('Никнейм должен содержать от 3 до 20 символов');
+        if (gameNickname.length < 2 || gameNickname.length > 20) {
+            alert('Никнейм должен содержать от 2 до 20 символов');
             return;
         }
         

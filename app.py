@@ -1256,13 +1256,15 @@ def api_register_event(event_id):
     if not game_nickname:
         return jsonify({"ok": False, "error": "game_nickname required"}), 400
     
-    # Validate game_nickname: 3-20 chars, letters (lat/cyrillic), numbers, underscore, spaces
+    # Validate game_nickname: 2-20 chars, letters (lat/cyrillic), numbers, underscore, spaces
     import re
     # Allow letters (lat/cyrillic), numbers, underscore, and spaces
     # Trim spaces from start/end, but allow spaces in the middle
     game_nickname = game_nickname.strip()
-    if not re.match(r'^[a-zA-Zа-яА-ЯёЁ0-9_\s]{3,20}$', game_nickname):
-        return jsonify({"ok": False, "error": "game_nickname должен содержать 3-20 символов: буквы (лат/кирилл), цифры, пробелы и _"}), 400
+    if len(game_nickname) < 2 or len(game_nickname) > 20:
+        return jsonify({"ok": False, "error": "game_nickname должен содержать 2-20 символов"}), 400
+    if not re.match(r'^[a-zA-Zа-яА-ЯёЁ0-9_\s]+$', game_nickname):
+        return jsonify({"ok": False, "error": "game_nickname может содержать только буквы (лат/кирилл), цифры, пробелы и _"}), 400
     # Don't allow only spaces
     if not game_nickname.replace(' ', '').replace('_', ''):
         return jsonify({"ok": False, "error": "game_nickname не может состоять только из пробелов и подчеркиваний"}), 400
