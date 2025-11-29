@@ -350,17 +350,27 @@ document.addEventListener('DOMContentLoaded', function(){
         const profileNameEl = document.getElementById('profile-name');
         const profileTelegramEl = document.getElementById('profile-telegram');
         const profileEditBtn = document.getElementById('profile-edit-name-btn');
+        const authStatusText = document.getElementById('auth-status-text');
+        const telegramWidgetContainer = document.getElementById('telegram-widget-container');
         
         // Show loading state
         if (profileNameEl) profileNameEl.textContent = 'Загрузка...';
         if (profileTelegramEl) profileTelegramEl.textContent = 'Загрузка...';
+        if (authStatusText) authStatusText.textContent = 'Проверка авторизации...';
         
-        // If we have telegram_id, load data from server
+        // If we have telegram_id, check if user exists in database
         if (telegramId) {
             fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.ok) {
+                        // User exists in database - hide widget, show authorized status
+                        if (telegramWidgetContainer) telegramWidgetContainer.style.display = 'none';
+                        if (authStatusText) {
+                            authStatusText.textContent = '✅ Вы авторизованы';
+                            authStatusText.style.color = '#4ade80';
+                        }
+                        
                         // Update localStorage with server data
                         const fullName = data.first_name + (data.last_name ? ' ' + data.last_name : '');
                         localStorage.setItem('pulse_player_name', fullName || 'Не зарегистрирован');
@@ -390,6 +400,13 @@ document.addEventListener('DOMContentLoaded', function(){
                             }
                         }
                     } else {
+                        // User not in database - show widget for registration
+                        if (telegramWidgetContainer) telegramWidgetContainer.style.display = 'block';
+                        if (authStatusText) {
+                            authStatusText.textContent = '🔐 Для записи на события необходимо авторизоваться через Telegram бота (/start)';
+                            authStatusText.style.color = 'var(--text-muted)';
+                        }
+                        
                         // Fallback to localStorage if server request fails
                         const playerName = localStorage.getItem('pulse_player_name') || 'Не зарегистрирован';
                         const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
@@ -411,6 +428,13 @@ document.addEventListener('DOMContentLoaded', function(){
                 })
                 .catch(error => {
                     console.error('Error loading user data:', error);
+                    // On error, show widget
+                    if (telegramWidgetContainer) telegramWidgetContainer.style.display = 'block';
+                    if (authStatusText) {
+                        authStatusText.textContent = '🔐 Для записи на события необходимо авторизоваться через Telegram бота (/start)';
+                        authStatusText.style.color = 'var(--text-muted)';
+                    }
+                    
                     // Fallback to localStorage
                     const playerName = localStorage.getItem('pulse_player_name') || 'Не зарегистрирован';
                     const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
@@ -430,6 +454,13 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                 });
         } else {
+            // No telegram_id - show widget
+            if (telegramWidgetContainer) telegramWidgetContainer.style.display = 'block';
+            if (authStatusText) {
+                authStatusText.textContent = '🔐 Для записи на события необходимо авторизоваться через Telegram бота (/start)';
+                authStatusText.style.color = 'var(--text-muted)';
+            }
+            
             // No telegram_id, show default
             const playerName = localStorage.getItem('pulse_player_name') || 'Не зарегистрирован';
             const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
@@ -1163,12 +1194,12 @@ document.addEventListener('DOMContentLoaded', function(){
                     <span class="profile-info-value" id="profile-telegram">Загрузка...</span>
                 </div>
             </div>
-            <div class="profile-actions">
-                <div style="margin-bottom: 1.5vh; padding: 1.5vh; background: rgba(0, 238, 255, 0.05); border-radius: 12px; border: 1px solid rgba(0, 238, 255, 0.2);">
-                    <div style="font-size: 1.4vh; color: var(--text-muted); margin-bottom: 1vh; text-align: center;">
-                        🔐 Для записи на события необходимо авторизоваться через Telegram
+            <div class="profile-actions" id="profile-auth-section">
+                <div id="telegram-widget-container" style="display: none;"></div>
+                <div id="profile-auth-status" style="margin-bottom: 1.5vh; padding: 1.5vh; background: rgba(0, 238, 255, 0.05); border-radius: 12px; border: 1px solid rgba(0, 238, 255, 0.2);">
+                    <div style="font-size: 1.4vh; color: var(--text-muted); text-align: center;">
+                        <span id="auth-status-text">Проверка авторизации...</span>
                     </div>
-                    <div id="telegram-widget-container"></div>
                 </div>
             </div>
         </div>

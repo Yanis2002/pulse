@@ -118,12 +118,14 @@ def init_db():
             )
         """)
         
-        # Players table
+        # Players table - now uses telegram_id as primary identifier
         db.execute("""
             CREATE TABLE IF NOT EXISTS players (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                name TEXT NOT NULL,
+                telegram_id TEXT UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(telegram_id)
             )
         """)
         
@@ -1663,13 +1665,40 @@ def api_finalize_poker_tournament(date):
                 # Bonus points (+100 for rent, reentry, addon) are added to place points
                 total_points = place_points + bonus_points
                 
-                # Get or create player in players table
-                player_row = db.execute("SELECT id FROM players WHERE name = ?", (player["player_name"],)).fetchone()
-                if not player_row:
-                    cursor = db.execute("INSERT INTO players (name) VALUES (?)", (player["player_name"],))
-                    player_id = cursor.lastrowid
+                # Get or create player in players table using telegram_id
+                # First try to get telegram_id from event_registrations
+                telegram_id = None
+                if player.get("telegram_id"):
+                    telegram_id = player["telegram_id"]
                 else:
-                    player_id = player_row["id"]
+                    # Try to get telegram_id from event_registrations by player_name
+                    reg = db.execute("""
+                        SELECT telegram_id FROM event_registrations 
+                        WHERE event_id = ? AND player_name = ? AND telegram_id IS NOT NULL
+                        LIMIT 1
+                    """, (event_id, player["player_name"])).fetchone()
+                    if reg and reg["telegram_id"]:
+                        telegram_id = reg["telegram_id"]
+                
+                # Get or create player by telegram_id (primary) or name (fallback)
+                if telegram_id:
+                    player_row = db.execute("SELECT id FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+                    if not player_row:
+                        # Create new player with telegram_id
+                        cursor = db.execute("INSERT INTO players (name, telegram_id) VALUES (?, ?)", (player["player_name"], telegram_id))
+                        player_id = cursor.lastrowid
+                    else:
+                        player_id = player_row["id"]
+                        # Update name if changed
+                        db.execute("UPDATE players SET name = ? WHERE id = ?", (player["player_name"], player_id))
+                else:
+                    # Fallback: use name if telegram_id not available
+                    player_row = db.execute("SELECT id FROM players WHERE name = ? AND telegram_id IS NULL", (player["player_name"],)).fetchone()
+                    if not player_row:
+                        cursor = db.execute("INSERT INTO players (name) VALUES (?)", (player["player_name"],))
+                        player_id = cursor.lastrowid
+                    else:
+                        player_id = player_row["id"]
                 
                 # Save points to tournament_results
                 db.execute("""
