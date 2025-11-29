@@ -232,9 +232,35 @@ function initTelegramWebAppAuth() {
             .then(response => response.json())
             .then(data => {
                 console.log('✅ User auto-registered from Telegram Web App:', data);
-                // Reload profile data to update UI
-                if (typeof loadProfileData === 'function') {
-                    loadProfileData();
+                // Check user status - don't show modals if already registered
+                return fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`);
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('📋 User status after auto-registration:', data);
+                // Only show modals if user hasn't completed registration
+                if (data.ok && data.offer_accepted && data.game_nickname) {
+                    // User already registered - just reload profile
+                    console.log('✅ User already fully registered, skipping modals');
+                    if (typeof loadProfileData === 'function') {
+                        loadProfileData();
+                    }
+                } else if (data.ok && data.offer_accepted && !data.game_nickname) {
+                    // Offer accepted but no nickname - show nickname modal
+                    console.log('📋 Offer accepted but no nickname, showing nickname modal');
+                    const nicknameModal = document.getElementById('nickname-modal');
+                    if (nicknameModal) {
+                        nicknameModal.style.display = 'block';
+                        nicknameModal.classList.add('active');
+                    }
+                } else {
+                    // Offer not accepted - show offer modal
+                    console.log('📋 Offer not accepted, showing offer modal');
+                    const offerModal = document.getElementById('offer-modal');
+                    if (offerModal) {
+                        offerModal.style.display = 'block';
+                        offerModal.classList.add('active');
+                    }
                 }
             })
             .catch(error => {
@@ -1084,39 +1110,63 @@ document.addEventListener('DOMContentLoaded', function(){
             console.log('Registration response data:', data);
             if (data.ok) {
                 console.log('✅ User registered successfully in database');
-                alert('✅ Регистрация успешна! Ваши данные сохранены в базе данных.');
                 
-                // Update profile display (reload from server to get latest data)
+                // Check user status BEFORE showing modals
+                return fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`);
+            } else {
+                throw new Error(data.error || 'Registration failed');
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('📋 User status after registration:', data);
+            
+            if (data.ok && data.offer_accepted && data.game_nickname) {
+                // User already fully registered - don't show modals
+                console.log('✅ User already fully registered (offer accepted + nickname set), skipping modals');
+                alert('✅ Вы уже зарегистрированы! Ваши данные сохранены.');
+                
+                // Update profile display
                 loadProfileData();
                 
-                // Check admin status after registration
-                if (telegramUsername) {
-                    console.log('Checking admin status for:', telegramUsername);
-                    checkAdminStatus(telegramUsername);
+                // Check admin status
+                if (telegramId && typeof checkAdminStatus === 'function') {
+                    checkAdminStatus(telegramId);
                 }
+                return;
+            }
+            
+            if (data.ok && data.offer_accepted && !data.game_nickname) {
+                // Offer accepted but no nickname - show nickname modal
+                console.log('📋 Offer accepted but no nickname, showing nickname modal');
+                alert('✅ Оферта принята! Теперь укажите игровой никнейм.');
                 
-                // After registration, ALWAYS show nickname modal if nickname not set
-                if (!data.game_nickname) {
-                    console.log('✅ Registration successful, showing nickname modal');
-                    // Show nickname modal - user must set nickname
-                    const nicknameModal = document.getElementById('nickname-modal');
-                    if (nicknameModal) {
-                        nicknameModal.style.display = 'block';
-                        nicknameModal.classList.add('active');
-                    }
-                } else {
-                    console.log('All set, closing profile modal');
-                    // All set - close profile modal and reload if on dashboard
-                    const profileModal = document.getElementById('profile-modal');
-                    const profileBackdrop = document.getElementById('profile-backdrop');
-                    if (profileModal) profileModal.classList.remove('active');
-                    if (profileBackdrop) profileBackdrop.classList.remove('active');
-                    
-                    if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
-                        window.location.reload();
-                    }
+                // Show nickname modal - user must set nickname
+                const nicknameModal = document.getElementById('nickname-modal');
+                if (nicknameModal) {
+                    nicknameModal.style.display = 'block';
+                    nicknameModal.classList.add('active');
                 }
-            } else {
+                return;
+            }
+            
+            if (!data.ok || !data.offer_accepted) {
+                // Offer not accepted - show offer modal
+                console.log('📋 Offer not accepted, showing offer modal');
+                alert('Для продолжения необходимо принять публичную оферту.');
+                
+                const offerModal = document.getElementById('offer-modal');
+                if (offerModal) {
+                    offerModal.style.display = 'block';
+                    offerModal.classList.add('active');
+                }
+                return;
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error during registration or status check:', error);
+            alert('Ошибка при регистрации. Попробуйте еще раз.');
+        }); else {
                 console.error('❌ Registration error:', data.error);
                 alert('Ошибка регистрации: ' + (data.error || 'неизвестная ошибка'));
             }

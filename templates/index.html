@@ -18,6 +18,11 @@
                 .then(data => {
                     if (data.ok && data.is_admin) {
                         isAdminValue = true;
+                        // Show settings button for admin
+                        const btnSettings = document.getElementById('btn-settings');
+                        if (btnSettings) {
+                            btnSettings.style.display = 'block';
+                        }
                     }
                     window.PULSE_TIMER_IS_ADMIN = isAdminValue;
                 })
@@ -1025,10 +1030,8 @@
             </div>
         </div>
         
-        <!-- Кнопка настроек (только для администратора) -->
-        {% if is_admin %}
-        <button class="btn-settings" id="btn-settings">⚙ Настройки</button>
-        {% endif %}
+        <!-- Кнопка настроек (только для администратора) - показывается динамически -->
+        <button class="btn-settings" id="btn-settings" style="display: none;">⚙ Настройки</button>
     </div>
 </div>
 
