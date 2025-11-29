@@ -1253,16 +1253,25 @@ def api_register_event(event_id):
     telegram_id = data.get("telegram_id", "").strip()
     game_nickname = data.get("game_nickname", "").strip()
     
-    # Authorization is based on telegram_id - it must be present
+    # Registration requires 3 factors: telegram_id, offer_accepted, and game_nickname
+    # Factor 1: telegram_id (authorization)
     if not telegram_id:
         return jsonify({"ok": False, "error": "telegram_id required for authorization"}), 400
     
     # Check if user exists in database (authorization check)
     try:
         with get_db() as db:
-            user = db.execute("SELECT telegram_id FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            user = db.execute("SELECT telegram_id, offer_accepted, game_nickname FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
             if not user:
                 return jsonify({"ok": False, "error": "User not authorized. Please register via Telegram bot (/start)"}), 401
+            
+            # Factor 2: offer_accepted
+            if not user.get("offer_accepted"):
+                return jsonify({"ok": False, "error": "offer_not_accepted", "message": "Необходимо принять публичную оферту для записи на события"}), 403
+            
+            # Factor 3: game_nickname
+            if not user.get("game_nickname"):
+                return jsonify({"ok": False, "error": "game_nickname_not_set", "message": "Необходимо указать игровой никнейм для записи на события"}), 403
     except Exception as e:
         print(f"Error checking user authorization: {e}")
         return jsonify({"ok": False, "error": "Authorization check failed"}), 500
@@ -2311,6 +2320,86 @@ def api_telegram_webhook():
         return jsonify({"ok": True})
     except Exception as e:
         print(f"Error processing webhook: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/admin/migrate-database", methods=["POST"])
+def api_migrate_database():
+    """Manually trigger database migration/backup (admin only)."""
+    try:
+        data = request.get_json() or {}
+        token = data.get("token", "")
+        telegram_username = data.get("telegram_username", "")
+        game_nickname = data.get("game_nickname", "")
+        telegram_id = data.get("telegram_id", "")
+        
+        # Check admin access
+        try:
+            require_admin({"token": token, "telegram_username": telegram_username, "game_nickname": game_nickname, "telegram_id": telegram_id})
+        except PermissionError:
+            return jsonify({"ok": False, "error": "unauthorized"}), 401
+        
+        # Perform migration
+        success = migrate_database()
+        
+        if success:
+            return jsonify({"ok": True, "message": "Database migration completed successfully"})
+        else:
+            return jsonify({"ok": False, "error": "Migration failed"}), 500
+            
+    except Exception as e:
+        print(f"Error in manual migration: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/admin/download-backup", methods=["GET"])
+def api_download_backup():
+    """Download latest database backup (admin only)."""
+    try:
+        token = request.args.get("token", "")
+        telegram_username = request.args.get("telegram_username", "")
+        game_nickname = request.args.get("game_nickname", "")
+        telegram_id = request.args.get("telegram_id", "")
+        
+        # Check admin access
+        try:
+            require_admin({"token": token, "telegram_username": telegram_username, "game_nickname": game_nickname, "telegram_id": telegram_id})
+        except PermissionError:
+            return jsonify({"ok": False, "error": "unauthorized"}), 401
+        
+        # Find latest backup
+        backup_dir = os.path.join(DB_DIR, "backups")
+        if not os.path.exists(backup_dir):
+            return jsonify({"ok": False, "error": "No backups found"}), 404
+        
+        backups = []
+        for filename in os.listdir(backup_dir):
+            if filename.startswith("pulse_tournaments_backup_") and filename.endswith(".db"):
+                filepath = os.path.join(backup_dir, filename)
+                backups.append((os.path.getmtime(filepath), filepath, filename))
+        
+        if not backups:
+            return jsonify({"ok": False, "error": "No backups found"}), 404
+        
+        # Get latest backup
+        backups.sort(reverse=True)
+        latest_backup_path = backups[0][1]
+        latest_backup_filename = backups[0][2]
+        
+        from flask import send_file
+        return send_file(
+            latest_backup_path,
+            as_attachment=True,
+            download_name=latest_backup_filename,
+            mimetype="application/x-sqlite3"
+        )
+        
+    except Exception as e:
+        print(f"Error downloading backup: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500

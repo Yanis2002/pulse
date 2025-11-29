@@ -876,6 +876,19 @@
                 <div id="telegram-users-info" style="color: var(--text-muted); font-size: 1.4vh; margin-bottom: 1vh;"></div>
                 <div id="telegram-users-container" style="max-height: 50vh; overflow-y: auto; -webkit-overflow-scrolling: touch;"></div>
                 
+                <!-- Database Migration Panel -->
+                <div style="margin-top: 3vh; padding-top: 3vh; border-top: 1px solid var(--accent-dim);">
+                    <div class="admin-title">Управление базой данных</div>
+                    <div style="color: var(--text-muted); font-size: 1.3vh; margin-bottom: 1.5vh; padding: 1vh 1.5vw; background: rgba(255, 46, 59, 0.05); border-radius: 8px;">
+                        <strong>Информация:</strong> Миграция создает резервную копию базы данных и оптимизирует её. Автоматическая миграция выполняется каждые 24 часа.
+                    </div>
+                    <div style="display: flex; gap: 1vw; margin-bottom: 1.5vh;">
+                        <button class="admin-btn" id="migrate-database" style="flex: 1; background: rgba(255, 46, 59, 0.3); border: 1px solid var(--accent-soft);">🔄 Выполнить миграцию</button>
+                        <button class="admin-btn" id="download-backup" style="flex: 1; background: rgba(0, 238, 255, 0.2); border: 1px solid rgba(0, 238, 255, 0.4);">💾 Скачать бэкап</button>
+                    </div>
+                    <div id="migration-result" style="margin-top: 1.5vh; padding: 1vh 1.5vw; border-radius: 8px; display: none;"></div>
+                </div>
+                
                 <!-- Broadcast Message Panel -->
                 <div style="margin-top: 3vh; padding-top: 3vh; border-top: 1px solid var(--accent-dim);">
                     <div class="admin-title">Рассылка сообщений через бота</div>
@@ -1034,15 +1047,7 @@ $(document).ready(function() {
         const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
         if (telegramUsername) {
             try {
-                // Check admin status using game_nickname or telegram_id
-                const telegramId = localStorage.getItem('pulse_telegram_id') || '';
-                let url = '/api/telegram/check-admin?';
-                if (telegramId) {
-                    url += 'telegram_id=' + encodeURIComponent(telegramId);
-                } else {
-                    return; // No telegram_id, can't check admin
-                }
-                const response = await fetch(url);
+                const response = await fetch('/api/telegram/check-admin?username=' + encodeURIComponent(telegramUsername));
                 const data = await response.json();
                 if (data.ok && data.is_admin) {
                     IS_ADMIN = true;
