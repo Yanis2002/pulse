@@ -103,8 +103,17 @@ def set_security_headers(response):
 
 # Use persistent storage path if available, otherwise use local path
 # For production: use /data directory (mounted persistent volume)
-# For local: use current directory
-DB_DIR = os.environ.get("DB_DIR", os.path.dirname(os.path.abspath(__file__)))
+# For local: use current directory or local_db for local version
+LOCAL_MODE = os.environ.get("LOCAL_MODE", "false") == "true"
+if LOCAL_MODE:
+    # Local version - use separate database directory
+    DB_DIR = os.environ.get("DB_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_db"))
+    print(f"🔧 LOCAL MODE: Using database directory: {DB_DIR}")
+else:
+    # Production version
+    DB_DIR = os.environ.get("DB_DIR", os.path.dirname(os.path.abspath(__file__)))
+    print(f"🌐 PRODUCTION MODE: Using database directory: {DB_DIR}")
+
 if not os.path.exists(DB_DIR):
     os.makedirs(DB_DIR, exist_ok=True)
 DB_PATH = os.path.join(DB_DIR, "pulse_tournaments.db")
@@ -506,8 +515,15 @@ def timer():
 
 @app.route("/rating")
 def rating():
-    # Pages are accessible to everyone, admin status is checked dynamically on frontend
-    return render_template("rating.html", is_admin=False, admin_token=ADMIN_TOKEN)
+    """Rating page - accessible to everyone, admin status is checked dynamically on frontend."""
+    try:
+        # Pages are accessible to everyone, admin status is checked dynamically on frontend
+        return render_template("rating.html", is_admin=False, admin_token=ADMIN_TOKEN)
+    except Exception as e:
+        print(f"❌ Error rendering rating page: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"Error loading rating page: {str(e)}", 500
 
 @app.route("/contacts")
 def contacts():
@@ -2755,8 +2771,8 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
-# Don't kill port on production (Amvera) or when running as module
-if os.environ.get("AMVERA") != "true" and __name__ == "__main__":
+# Don't kill port on production (Amvera) or when running as module or in local mode
+if os.environ.get("AMVERA") != "true" and os.environ.get("LOCAL_MODE") != "true" and __name__ == "__main__":
     kill_existing_port(8000)
 
 if __name__ == "__main__":
