@@ -330,26 +330,11 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // Check admin status on page load
     (function() {
-        const telegramUsername = localStorage.getItem('pulse_telegram_username');
-        if (telegramUsername) {
-            // Wait a bit for DOM to be ready, then check admin status
+        const telegramId = localStorage.getItem('pulse_telegram_id');
+        if (telegramId) {
+            // Wait a bit for DOM to be ready
             setTimeout(function() {
-                const telegramId = localStorage.getItem('pulse_telegram_id');
-                if (telegramId) {
-                    // Try to get game_nickname from server
-                    fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.ok && data.game_nickname) {
-                                checkAdminStatus(data.game_nickname);
-                            } else {
-                                checkAdminStatus(null, telegramId);
-                            }
-                        })
-                        .catch(() => {
-                            checkAdminStatus(null, telegramId);
-                        });
-                }
+                checkAdminStatus(telegramId);
             }, 500);
         }
     })();
@@ -381,11 +366,9 @@ document.addEventListener('DOMContentLoaded', function(){
                         if (data.username) {
                             localStorage.setItem('pulse_telegram_username', data.username);
                         }
-                        // Check admin status after loading (use game_nickname or telegram_id)
-                        if (data.game_nickname) {
-                            checkAdminStatus(data.game_nickname);
-                        } else if (telegramId) {
-                            checkAdminStatus(null, telegramId);
+                        // Check admin status after loading user data
+                        if (telegramId) {
+                            checkAdminStatus(telegramId);
                         }
                         
                         // Update display
@@ -497,202 +480,164 @@ document.addEventListener('DOMContentLoaded', function(){
             console.log('Updated profile telegram:', displayText);
         }
         
-        // Process authentication immediately (offer is checked before widget becomes active)
-        console.log('Calling processTelegramAuth...');
-        processTelegramAuth(user);
+        // Check if offer is already accepted BEFORE registering
+        console.log('🔍 Checking offer status before registration...');
+        checkOfferAndRegister(user);
     };
     
-    // Telegram Login Widget - simple version (always active, offer shown after auth)
-    function initTelegramWidget() {
-        const container = document.getElementById('telegram-widget-container');
-        if (!container) return;
+    // Check offer status and proceed with registration only if accepted
+    function checkOfferAndRegister(user) {
+        const telegramId = user.id.toString();
         
-        // Remove existing widget if any
-        const existingScript = document.querySelector('script[data-telegram-login]');
-        if (existingScript) {
-            existingScript.remove();
-        }
-        
-        // Clear container
-        container.innerHTML = '';
-        
-        // Check current domain
-        const currentDomain = window.location.hostname;
-        const isLocalhost = currentDomain === 'localhost' || currentDomain === '127.0.0.1' || currentDomain.startsWith('192.168.');
-        
-        // Show domain registration notice if needed
-        if (isLocalhost) {
-            container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--text-muted); font-size: 1.3vh; line-height: 1.6;">⚠️ Виджет Telegram работает только на зарегистрированном домене.<br><br>Для локальной разработки используйте:<br><code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">localhost</code><br><br>Или зарегистрируйте домен через @BotFather:<br><code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">/setdomain</code></div>';
+        // Check user status from server
+        fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('📋 User status from server:', data);
+                
+                if (data.ok && data.offer_accepted) {
+                    // Offer already accepted, proceed with registration
+                    console.log('✅ Offer already accepted, proceeding with registration');
+                    processTelegramAuth(user);
+                } else {
+                    // Offer not accepted, show offer modal first
+                    console.log('📋 Offer not accepted, showing offer modal');
+                    showOfferModal(user);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error checking user status:', error);
+                // If error, assume new user and show offer
+                showOfferModal(user);
+            });
+    }
+    
+    // Show offer modal and handle acceptance
+    function showOfferModal(user) {
+        const offerModal = document.getElementById('offer-modal');
+        if (!offerModal) {
+            console.error('❌ Offer modal not found');
+            // If modal not found, proceed with registration anyway
+            processTelegramAuth(user);
             return;
         }
         
-        // Create widget script
-        const script = document.createElement('script');
-        script.async = true;
-        script.src = 'https://telegram.org/js/telegram-widget.js?22';
-        script.setAttribute('data-telegram-login', 'Pulse_Club_bot');
-        script.setAttribute('data-size', 'large');
-        script.setAttribute('data-radius', '20');
-        script.setAttribute('data-onauth', 'onTelegramAuth');
-        script.setAttribute('data-request-access', 'write');
+        // Store user data temporarily to use after offer acceptance
+        window._pendingTelegramUser = user;
         
-        // Handle widget script load
-        script.onload = function() {
-            setTimeout(function() {
-                const widgetButton = container.querySelector('iframe');
-                if (widgetButton && widgetButton.tagName === 'IFRAME') {
-                    // Listen for messages from iframe
-                    window.addEventListener('message', function(event) {
-                        if (event.origin === 'https://oauth.telegram.org' && event.data) {
-                            let parsedData = event.data;
-                            if (typeof event.data === 'string') {
-                                try {
-                                    parsedData = JSON.parse(event.data);
-                                } catch (e) {
-                                    return;
-                                }
-                            }
-                            
-                            if (parsedData && parsedData.auth_data) {
-                                const userData = parsedData.auth_data;
-                                if (userData && userData.id && typeof window.onTelegramAuth === 'function') {
-                                    window.onTelegramAuth(userData);
-                                }
-                            }
-                        }
-                    });
-                }
-            }, 1000);
-        };
+        // Show offer modal
+        offerModal.style.display = 'block';
+        offerModal.classList.add('active');
         
-        container.appendChild(script);
-    }
-    
-    // REMOVED: Old complex offer flow - now using simple flow: widget always active, offer shown after auth
-    // function showOfferPrompt(container) {
-        console.log('📋 Showing offer prompt with disabled widget');
+        // Handle offer acceptance
+        const offerAcceptBtn = document.getElementById('offer-accept-btn');
+        const offerRejectBtn = document.getElementById('offer-reject-btn');
         
-        // Show widget first (but it will be disabled)
-        showTelegramWidget(container, true); // true = disabled
+        if (offerAcceptBtn) {
+            // Remove old listeners
+            const newAcceptBtn = offerAcceptBtn.cloneNode(true);
+            offerAcceptBtn.parentNode.replaceChild(newAcceptBtn, offerAcceptBtn);
+            
+            newAcceptBtn.addEventListener('click', function() {
+                console.log('✅ Offer accepted, proceeding with registration');
+                acceptOfferAndRegister(user);
+            });
+        }
         
-        // Add offer checkbox below widget (hidden by default)
-        const offerSection = document.createElement('div');
-        offerSection.id = 'offer-checkbox-section';
-        offerSection.style.cssText = 'text-align: center; padding: 2vh 0; color: var(--text); font-size: 1.4vh; line-height: 1.8; display: none;';
-        offerSection.innerHTML = `
-            <label style="display: flex; align-items: center; justify-content: center; gap: 1vw; cursor: pointer; pointer-events: none; opacity: 0.5;" id="offer-label">
-                <input type="checkbox" id="offer-checkbox" disabled style="width: 1.5vh; height: 1.5vh; cursor: not-allowed;">
-                <span>Я ознакомился с <a href="https://docs.google.com/document/d/1KgkvSh-Vtx4-EyCcaetlIUYkuATmTqS-/preview" target="_blank" id="offer-link" style="color: #ff4b5c; text-decoration: underline; cursor: pointer;">публичной офертой</a> и принимаю её условия</span>
-            </label>
-        `;
-        
-        // Show offer section when widget is clicked while disabled
-        const showOfferOnClick = function() {
-            if (offerSection.style.display === 'none') {
-                offerSection.style.display = 'block';
-            }
-        };
-        
-        container.appendChild(offerSection);
-        
-        // Track if user clicked on offer link
-        let offerLinkClicked = false;
-        const offerLink = document.getElementById('offer-link');
-        const offerLabel = document.getElementById('offer-label');
-        const checkbox = document.getElementById('offer-checkbox');
-        
-        if (offerLink) {
-            offerLink.addEventListener('click', function() {
-                console.log('✅ User clicked on offer link');
-                offerLinkClicked = true;
+        if (offerRejectBtn) {
+            // Remove old listeners
+            const newRejectBtn = offerRejectBtn.cloneNode(true);
+            offerRejectBtn.parentNode.replaceChild(newRejectBtn, offerRejectBtn);
+            
+            newRejectBtn.addEventListener('click', function() {
+                console.log('❌ Offer rejected, deleting user data');
+                const telegramId = user.id.toString();
                 
-                // Enable checkbox after link click
-                if (checkbox && offerLabel) {
-                    checkbox.disabled = false;
-                    offerLabel.style.pointerEvents = 'auto';
-                    offerLabel.style.opacity = '1';
-                    checkbox.style.cursor = 'pointer';
-                }
-            });
-        }
-        
-        // Enable widget when checkbox is checked
-        if (checkbox) {
-            checkbox.addEventListener('change', function() {
-                if (this.checked && offerLinkClicked) {
-                    console.log('✅ Offer checkbox checked, accepting offer and enabling widget');
-                    
-                    // Accept offer on server
-                    const telegramId = localStorage.getItem('pulse_telegram_id');
-                    if (telegramId) {
-                        fetch('/api/telegram/accept-offer', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                telegram_id: telegramId
-                            })
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.ok) {
-                                console.log('✅ Offer accepted on server, enabling widget');
-                                // Remove disabled state from widget
-                                enableTelegramWidget(container);
-                                // Hide offer section
-                                if (offerSection) {
-                                    offerSection.style.display = 'none';
-                                }
-                            } else {
-                                console.error('❌ Error accepting offer:', data.error);
-                                this.checked = false;
-                                alert('Ошибка при принятии оферты: ' + (data.error || 'неизвестная ошибка'));
-                            }
-                        })
-                        .catch(error => {
-                            console.error('❌ Error accepting offer:', error);
-                            this.checked = false;
-                            alert('Ошибка при принятии оферты. Пожалуйста, попробуйте еще раз.');
-                        });
-                    } else {
-                        // No telegram_id yet, just enable widget (offer will be checked after auth)
-                        console.log('⚠️ No telegram_id, enabling widget anyway');
-                        enableTelegramWidget(container);
-                        if (offerSection) {
-                            offerSection.style.display = 'none';
+                // Delete user data from server
+                fetch('/api/telegram/delete-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        telegram_id: telegramId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ok) {
+                        console.log('✅ User data deleted from server');
+                        // Clear localStorage
+                        localStorage.removeItem('pulse_player_name');
+                        localStorage.removeItem('pulse_telegram_id');
+                        localStorage.removeItem('pulse_telegram_username');
+                        // Close modal
+                        const offerModal = document.getElementById('offer-modal');
+                        if (offerModal) {
+                            offerModal.style.display = 'none';
+                            offerModal.classList.remove('active');
                         }
+                        // Update profile display
+                        loadProfileData();
+                    } else {
+                        console.error('❌ Error deleting user:', data.error);
                     }
-                } else if (this.checked && !offerLinkClicked) {
-                    // Checkbox checked but link not clicked
-                    alert('Пожалуйста, сначала ознакомьтесь с офертой, перейдя по ссылке');
-                    this.checked = false;
-                }
+                })
+                .catch(error => {
+                    console.error('❌ Error deleting user:', error);
+                });
             });
         }
     }
     
-    // Enable Telegram widget (remove disabled state)
-    function enableTelegramWidget(container) {
-        console.log('✅ Enabling Telegram widget');
-        const widgetIframe = container.querySelector('iframe[src*="oauth.telegram.org"]');
-        if (widgetIframe) {
-            // Remove pointer-events: none if it was set
-            widgetIframe.style.pointerEvents = 'auto';
-            widgetIframe.style.opacity = '1';
-            widgetIframe.style.filter = 'none';
-        }
+    // Accept offer and register user
+    function acceptOfferAndRegister(user) {
+        const telegramId = user.id.toString();
         
-        // Also check for any overlay that might be blocking
-        const overlays = container.querySelectorAll('[style*="pointer-events: none"]');
-        overlays.forEach(overlay => {
-            overlay.style.pointerEvents = 'auto';
+        // Accept offer on server
+        fetch('/api/telegram/accept-offer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                telegram_id: telegramId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                console.log('✅ Offer accepted on server');
+                // Close offer modal
+                const offerModal = document.getElementById('offer-modal');
+                if (offerModal) {
+                    offerModal.style.display = 'none';
+                    offerModal.classList.remove('active');
+                }
+                // Now proceed with registration
+                processTelegramAuth(user);
+            } else {
+                console.error('❌ Error accepting offer:', data.error);
+                alert('Ошибка при принятии оферты: ' + (data.error || 'неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error accepting offer:', error);
+            alert('Ошибка при принятии оферты. Пожалуйста, попробуйте еще раз.');
         });
     }
     
-    // Show Telegram widget
-    function showTelegramWidget(container, disabled = false) {
-        console.log('📱 Showing Telegram widget', disabled ? '(disabled)' : '(enabled)');
+    // Telegram Login Widget
+    function initTelegramWidget() {
+        console.log('🔧 initTelegramWidget called');
+        
+        const container = document.getElementById('telegram-widget-container');
+        if (!container) {
+            console.error('❌ telegram-widget-container not found!');
+            return;
+        }
+        
+        console.log('✅ Container found:', container);
         
         // Verify onTelegramAuth is defined
         if (typeof window.onTelegramAuth !== 'function') {
@@ -710,7 +655,7 @@ document.addEventListener('DOMContentLoaded', function(){
         }
         
         // Clear container
-        container.innerHTML = '';
+        container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--text-muted); font-size: 1.3vh;">Загрузка виджета...</div>';
         
         // Check current domain
         const currentDomain = window.location.hostname;
@@ -851,33 +796,6 @@ document.addEventListener('DOMContentLoaded', function(){
         console.log('📤 Appending widget script to container');
         container.appendChild(script);
         console.log('✅ Widget script appended');
-        
-        // If disabled, add overlay to block interactions and show message on click
-        if (disabled) {
-            setTimeout(function() {
-                const widgetIframe = container.querySelector('iframe[src*="oauth.telegram.org"]');
-                if (widgetIframe) {
-                    widgetIframe.style.pointerEvents = 'none';
-                    widgetIframe.style.opacity = '0.5';
-                    widgetIframe.style.filter = 'grayscale(100%)';
-                    console.log('🔒 Widget disabled (waiting for offer acceptance)');
-                    
-                    // Add click handler to show message
-                    const overlay = document.createElement('div');
-                    overlay.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor: pointer; z-index: 10;';
-                    overlay.addEventListener('click', function() {
-                        alert('🔐 Для входа через Telegram необходимо принять публичную оферту.\n\nПожалуйста, ознакомьтесь с офертой (ссылка ниже) и поставьте галочку.');
-                    });
-                    
-                    // Make container relative for absolute positioning
-                    if (container.style.position !== 'relative' && container.style.position !== 'absolute') {
-                        container.style.position = 'relative';
-                    }
-                    
-                    container.appendChild(overlay);
-                }
-            }, 2000);
-        }
     }
     
     // Process Telegram authentication - register user and show modals if needed
@@ -924,41 +842,31 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Update profile display (reload from server to get latest data)
                 loadProfileData();
                 
-                // Check admin status after registration (use game_nickname or telegram_id)
-                if (data.game_nickname) {
-                    console.log('Checking admin status for game_nickname:', data.game_nickname);
-                    checkAdminStatus(data.game_nickname);
-                } else {
-                    const telegramId = localStorage.getItem('pulse_telegram_id');
-                    if (telegramId) {
-                        console.log('Checking admin status for telegram_id:', telegramId);
-                        checkAdminStatus(null, telegramId);
-                    }
+                // Check admin status after registration
+                if (telegramUsername) {
+                    console.log('Checking admin status for:', telegramUsername);
+                    checkAdminStatus(telegramUsername);
                 }
                 
-                // After registration, check if offer needs to be accepted (only once)
-                if (!data.offer_accepted) {
-                    console.log('📋 Offer not accepted, showing offer modal');
-                    // Show offer modal - user must accept or data will be deleted
-                    showOfferModalAfterAuth(user);
-                } else if (!data.game_nickname) {
-                    console.log('No nickname, showing nickname modal');
-                    // Offer accepted but no nickname - show nickname modal
+                // After registration, ALWAYS show nickname modal if nickname not set
+                if (!data.game_nickname) {
+                    console.log('✅ Registration successful, showing nickname modal');
+                    // Show nickname modal - user must set nickname
                     const nicknameModal = document.getElementById('nickname-modal');
                     if (nicknameModal) {
                         nicknameModal.style.display = 'block';
                         nicknameModal.classList.add('active');
                     }
                 } else {
-                    console.log('All set, updating profile display');
-                    // All set - update profile display but keep modal open
-                    loadProfileData();
+                    console.log('All set, closing profile modal');
+                    // All set - close profile modal and reload if on dashboard
+                    const profileModal = document.getElementById('profile-modal');
+                    const profileBackdrop = document.getElementById('profile-backdrop');
+                    if (profileModal) profileModal.classList.remove('active');
+                    if (profileBackdrop) profileBackdrop.classList.remove('active');
                     
-                    // Reload page only if on dashboard to update events
                     if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1000);
+                        window.location.reload();
                     }
                 }
             } else {
@@ -969,172 +877,19 @@ document.addEventListener('DOMContentLoaded', function(){
         .catch(error => {
             console.error('❌ Error registering user:', error);
             alert('Ошибка при регистрации: ' + error.message + '\n\nПроверьте консоль браузера (F12) для подробностей.');
-            });
-    }
-    
-    // Show offer modal after authentication - if not accepted, delete user data
-    function showOfferModalAfterAuth(user) {
-        const offerModal = document.getElementById('offer-modal');
-        if (!offerModal) {
-            console.error('❌ Offer modal not found');
-            return;
-        }
-        
-        // Show offer modal
-        offerModal.style.display = 'block';
-        offerModal.classList.add('active');
-        
-        // Store user data temporarily
-        window._pendingTelegramUser = user;
-        
-        // Handle offer acceptance
-        const offerAcceptBtn = document.getElementById('offer-accept');
-        const offerDeclineBtn = document.getElementById('offer-decline');
-        
-        // Remove old listeners by cloning
-        if (offerAcceptBtn) {
-            const newAcceptBtn = offerAcceptBtn.cloneNode(true);
-            offerAcceptBtn.parentNode.replaceChild(newAcceptBtn, offerAcceptBtn);
-            
-            newAcceptBtn.addEventListener('click', function() {
-                console.log('✅ Offer accepted');
-                acceptOfferAfterAuth(user);
-            });
-        }
-        
-        if (offerDeclineBtn) {
-            const newDeclineBtn = offerDeclineBtn.cloneNode(true);
-            offerDeclineBtn.parentNode.replaceChild(newDeclineBtn, offerDeclineBtn);
-            
-            newDeclineBtn.addEventListener('click', function() {
-                console.log('❌ Offer declined, deleting user data');
-                declineOfferAndDeleteData(user);
-            });
-        }
-    }
-    
-    // Accept offer after authentication
-    function acceptOfferAfterAuth(user) {
-        const telegramId = user.id.toString();
-        
-        fetch('/api/telegram/accept-offer', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                telegram_id: telegramId
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok) {
-                console.log('✅ Offer accepted on server');
-                // Close offer modal
-                const offerModal = document.getElementById('offer-modal');
-                if (offerModal) {
-                    offerModal.style.display = 'none';
-                    offerModal.classList.remove('active');
-                }
-                
-                // Check if nickname is needed
-                fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
-                    .then(response => response.json())
-                    .then(statusData => {
-                        if (statusData.ok && !statusData.game_nickname) {
-                            // Show nickname modal
-                            const nicknameModal = document.getElementById('nickname-modal');
-                            if (nicknameModal) {
-                                nicknameModal.style.display = 'block';
-                                nicknameModal.classList.add('active');
-                            }
-                        } else {
-                            // All set
-                            loadProfileData();
-                            if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
-                                setTimeout(() => window.location.reload(), 1000);
-                            }
-                        }
-                    });
-            } else {
-                alert('Ошибка при принятии оферты: ' + (data.error || 'неизвестная ошибка'));
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error accepting offer:', error);
-            alert('Ошибка при принятии оферты. Пожалуйста, попробуйте еще раз.');
         });
     }
     
-    // Decline offer and delete user data
-    function declineOfferAndDeleteData(user) {
-        const telegramId = user.id.toString();
+    // Check admin status and update UI
+    function checkAdminStatus(telegramId) {
+        console.log('🔍 checkAdminStatus called with telegramId:', telegramId);
         
-        // Delete user from database
-        fetch('/api/telegram/delete-user', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                telegram_id: telegramId
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok) {
-                console.log('✅ User data deleted from database');
-                
-                // Clear localStorage
-                localStorage.removeItem('pulse_player_name');
-                localStorage.removeItem('pulse_telegram_id');
-                localStorage.removeItem('pulse_telegram_username');
-                
-                // Close modals
-                const offerModal = document.getElementById('offer-modal');
-                const profileModal = document.getElementById('profile-modal');
-                const profileBackdrop = document.getElementById('profile-backdrop');
-                
-                if (offerModal) {
-                    offerModal.style.display = 'none';
-                    offerModal.classList.remove('active');
-                }
-                if (profileModal) {
-                    profileModal.classList.remove('active');
-                }
-                if (profileBackdrop) {
-                    profileBackdrop.classList.remove('active');
-                }
-                
-                // Update profile display
-                loadProfileData();
-                
-                alert('Данные удалены. Для записи на события необходимо принять публичную оферту.');
-            } else {
-                alert('Ошибка при удалении данных: ' + (data.error || 'неизвестная ошибка'));
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error deleting user:', error);
-            alert('Ошибка при удалении данных. Пожалуйста, попробуйте еще раз.');
-        });
-    }
-    
-    // Check admin status and update UI (based on game_nickname)
-    function checkAdminStatus(gameNickname, telegramId) {
-        console.log('🔍 checkAdminStatus called with:', {gameNickname, telegramId});
-        
-        // Build URL with game_nickname or telegram_id
-        let url = '/api/telegram/check-admin?';
-        if (gameNickname) {
-            url += 'game_nickname=' + encodeURIComponent(gameNickname);
-        } else if (telegramId) {
-            url += 'telegram_id=' + encodeURIComponent(telegramId);
-        } else {
-            console.warn('⚠️ No game_nickname or telegram_id provided to checkAdminStatus');
+        if (!telegramId) {
+            console.warn('⚠️ No telegram_id provided to checkAdminStatus');
             return;
         }
         
+        const url = '/api/telegram/check-admin?telegram_id=' + encodeURIComponent(telegramId);
         console.log('📡 Fetching:', url);
         
         fetch(url)
@@ -1149,7 +904,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 console.log('📡 Response data:', data);
                 
                 if (data.ok && data.is_admin) {
-                    console.log('✅ Admin access granted for:', gameNickname || telegramId);
+                    console.log('✅ Admin access granted for telegram_id:', telegramId);
                     
                     // Update IS_ADMIN on all pages
                     if (typeof IS_ADMIN !== 'undefined') {
@@ -1187,9 +942,9 @@ document.addEventListener('DOMContentLoaded', function(){
                         }
                     });
                     
-                    console.log('✅ Admin status updated successfully for:', gameNickname || telegramId);
+                    console.log('✅ Admin status updated successfully for telegram_id:', telegramId);
                 } else {
-                    console.warn('⚠️ User is not admin:', gameNickname || telegramId);
+                    console.warn('⚠️ User is not admin for telegram_id:', telegramId);
                     console.warn('⚠️ Admin list:', data.admin_list);
                 }
             })
@@ -1203,22 +958,10 @@ document.addEventListener('DOMContentLoaded', function(){
             profileModal.classList.add('active');
             profileBackdrop.classList.add('active');
             loadProfileData();
-            // Check admin status when opening profile (use game_nickname or telegram_id)
+            // Check admin status when opening profile
             const telegramId = localStorage.getItem('pulse_telegram_id');
             if (telegramId) {
-                // Try to get game_nickname from server
-                fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.ok && data.game_nickname) {
-                            checkAdminStatus(data.game_nickname);
-                        } else {
-                            checkAdminStatus(null, telegramId);
-                        }
-                    })
-                    .catch(() => {
-                        checkAdminStatus(null, telegramId);
-                    });
+                checkAdminStatus(telegramId);
             }
             // Initialize Telegram widget when modal opens (with delay to ensure DOM is ready)
             console.log('👤 Profile modal opened, initializing Telegram widget...');
@@ -1266,7 +1009,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 </div>
             </div>
             <div class="profile-actions">
-                <div id="telegram-widget-container"></div>
+                <div style="margin-bottom: 1.5vh; padding: 1.5vh; background: rgba(0, 238, 255, 0.05); border-radius: 12px; border: 1px solid rgba(0, 238, 255, 0.2);">
+                    <div style="font-size: 1.4vh; color: var(--text-muted); margin-bottom: 1vh; text-align: center;">
+                        🔐 Для записи на события необходимо авторизоваться через Telegram
+                    </div>
+                    <div id="telegram-widget-container"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -1538,13 +1286,13 @@ document.addEventListener('DOMContentLoaded', function(){
             return;
         }
         
-        // Save game_nickname to database (user chooses it themselves, not from Telegram)
         $.ajax({
-            url: '/api/telegram/set-nickname',
+            url: '/api/telegram/register',
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
                 telegram_id: telegramId,
+                first_name: localStorage.getItem('pulse_player_name') || 'User',
                 game_nickname: gameNickname
             })
         })

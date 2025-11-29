@@ -24,8 +24,7 @@ except ImportError:
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "local-admin")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8574583723:AAHGnyANIA7z_7yPftV1q_HBoYWH4XkMVnI")
 
-# List of Telegram usernames (without @) that have admin rights
-# Default admin: quadragesimoseptimochromosomatum
+# List of game nicknames that have admin rights
 # Admin system based on game_nickname (not Telegram username)
 ADMIN_GAME_NICKNAMES = os.environ.get("ADMIN_GAME_NICKNAMES", "emmpti,47").split(",")
 ADMIN_GAME_NICKNAMES = [n.strip().lower() for n in ADMIN_GAME_NICKNAMES if n.strip()]
@@ -234,12 +233,6 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # Column already exists
         
-        # Add UNIQUE index on game_nickname for faster lookups and uniqueness
-        try:
-            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_game_nickname ON telegram_users(game_nickname) WHERE game_nickname IS NOT NULL")
-        except sqlite3.OperationalError:
-            pass  # Index might already exist
-        
         # Migrate events table - add new columns if they don't exist
         try:
             db.execute("ALTER TABLE events ADD COLUMN max_places INTEGER DEFAULT 20")
@@ -446,10 +439,21 @@ def timer_loop():
         emit_state(payload)
 
 
-def check_is_admin(game_nickname=None):
+def check_is_admin(game_nickname=None, telegram_id=None):
     """Check if user is admin based on game_nickname."""
-    print(f"🔍 check_is_admin called with: '{game_nickname}'")
+    print(f"🔍 check_is_admin called with: game_nickname='{game_nickname}', telegram_id='{telegram_id}'")
     print(f"🔍 ADMIN_GAME_NICKNAMES: {ADMIN_GAME_NICKNAMES}")
+    
+    # If game_nickname not provided, try to get it from telegram_id
+    if not game_nickname and telegram_id:
+        try:
+            with get_db() as db:
+                user = db.execute("SELECT game_nickname FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+                if user and user["game_nickname"]:
+                    game_nickname = user["game_nickname"]
+                    print(f"🔍 Got game_nickname from telegram_id: '{game_nickname}'")
+        except Exception as e:
+            print(f"⚠️ Error fetching game_nickname: {e}")
     
     if not game_nickname:
         print("❌ No game_nickname provided")
@@ -1830,120 +1834,26 @@ def api_register_telegram_user():
 
 @app.route("/api/telegram/accept-offer", methods=["POST"])
 def api_accept_offer():
-    """Accept public offer - saves to database so it's accepted only once."""
+    """Accept public offer."""
     data = request.get_json() or {}
     telegram_id = data.get("telegram_id", "").strip()
-    
-    print(f"=== Accept Offer ===")
-    print(f"telegram_id: {telegram_id}")
     
     if not telegram_id:
         return jsonify({"ok": False, "error": "telegram_id required"}), 400
     
     try:
         with get_db() as db:
-            # Check if offer already accepted
-            existing = db.execute("SELECT offer_accepted FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
-            if existing:
-                if existing["offer_accepted"]:
-                    print(f"✅ Offer already accepted for user {telegram_id}")
-                    return jsonify({"ok": True, "message": "Offer already accepted", "already_accepted": True})
-            
-            # Update offer_accepted in database
-            cursor = db.execute("""
+            db.execute("""
                 UPDATE telegram_users 
                 SET offer_accepted = 1, offer_accepted_at = CURRENT_TIMESTAMP, last_active = CURRENT_TIMESTAMP
                 WHERE telegram_id = ?
             """, (telegram_id,))
             
-            if cursor.rowcount == 0:
-                print(f"❌ User {telegram_id} not found in database")
+            if db.rowcount == 0:
                 return jsonify({"ok": False, "error": "user not found"}), 404
-            
-            db.commit()
-            print(f"✅ Offer accepted and saved to database for user {telegram_id}")
         
         return jsonify({"ok": True, "message": "Offer accepted successfully"})
     except Exception as e:
-        print(f"❌ ERROR accepting offer: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/telegram/set-nickname", methods=["POST"])
-def api_set_nickname():
-    """Set game nickname - user chooses it themselves, not from Telegram."""
-    data = request.get_json() or {}
-    telegram_id = data.get("telegram_id", "").strip()
-    game_nickname = data.get("game_nickname", "").strip()
-    
-    print(f"=== Set Game Nickname ===")
-    print(f"telegram_id: {telegram_id}")
-    print(f"game_nickname: {game_nickname}")
-    
-    if not telegram_id:
-        return jsonify({"ok": False, "error": "telegram_id required"}), 400
-    
-    if not game_nickname:
-        return jsonify({"ok": False, "error": "game_nickname required"}), 400
-    
-    # Validate game_nickname: 3-20 chars, letters (lat/cyrillic), numbers, underscore
-    import re
-    if not re.match(r'^[a-zA-Zа-яА-ЯёЁ0-9_]{3,20}$', game_nickname):
-        return jsonify({"ok": False, "error": "game_nickname должен содержать 3-20 символов: буквы (лат/кирилл), цифры и _"}), 400
-    
-    try:
-        with get_db() as db:
-            # Check if user exists
-            user = db.execute("SELECT telegram_id FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
-            if not user:
-                return jsonify({"ok": False, "error": "user not found"}), 404
-            
-            # Update game_nickname (user chooses it themselves)
-            db.execute("""
-                UPDATE telegram_users 
-                SET game_nickname = ?, last_active = CURRENT_TIMESTAMP
-                WHERE telegram_id = ?
-            """, (game_nickname, telegram_id))
-            
-            db.commit()
-            print(f"✅ Game nickname '{game_nickname}' saved to database for user {telegram_id}")
-        
-        return jsonify({"ok": True, "message": "Game nickname set successfully"})
-    except Exception as e:
-        print(f"❌ ERROR setting nickname: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"ok": False, "error": str(e)}), 500
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/api/telegram/delete-user", methods=["POST"])
-def api_delete_user():
-    """Delete user data if offer is declined (admin only or self)."""
-    data = request.get_json() or {}
-    telegram_id = data.get("telegram_id", "").strip()
-    
-    print(f"=== Delete User ===")
-    print(f"telegram_id: {telegram_id}")
-    
-    if not telegram_id:
-        return jsonify({"ok": False, "error": "telegram_id required"}), 400
-    
-    try:
-        with get_db() as db:
-            # Delete user from database
-            db.execute("DELETE FROM telegram_users WHERE telegram_id = ?", (telegram_id,))
-            db.commit()
-            print(f"✅ User {telegram_id} deleted from database")
-        
-        return jsonify({"ok": True, "message": "User deleted successfully"})
-    except Exception as e:
-        print(f"❌ ERROR deleting user: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
@@ -2326,39 +2236,27 @@ def api_telegram_broadcast():
 
 
 def require_admin(data):
-    """Check admin access - either by token or game_nickname."""
+    """Check admin access - either by token or Telegram username."""
     token = (data or {}).get("token", "")
-    game_nickname = (data or {}).get("game_nickname", "")
-    telegram_id = (data or {}).get("telegram_id", "")
+    telegram_username = (data or {}).get("telegram_username", "")
     
-    print(f"🔐 require_admin called: token={bool(token)}, game_nickname='{game_nickname}', telegram_id='{telegram_id}'")
+    print(f"🔐 require_admin called: token={bool(token)}, telegram_username='{telegram_username}'")
     
     # Check token first (for backward compatibility)
     if token == ADMIN_TOKEN:
         print("✅ Admin access granted via token")
         return True
     
-    # If game_nickname not provided, try to get it from telegram_id
-    if not game_nickname and telegram_id:
-        try:
-            with get_db() as db:
-                user = db.execute("SELECT game_nickname FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
-                if user and user["game_nickname"]:
-                    game_nickname = user["game_nickname"]
-                    print(f"🔍 Got game_nickname from telegram_id: '{game_nickname}'")
-        except Exception as e:
-            print(f"⚠️ Error fetching game_nickname: {e}")
-    
-    # Check game_nickname
-    if game_nickname:
-        is_admin = check_is_admin(game_nickname)
+    # Check Telegram username
+    if telegram_username:
+        is_admin = check_is_admin(telegram_username)
         if is_admin:
-            print("✅ Admin access granted via game_nickname")
+            print("✅ Admin access granted via Telegram username")
             return True
         else:
-            print(f"❌ game_nickname '{game_nickname}' is not admin")
+            print(f"❌ Telegram username '{telegram_username}' is not admin")
     else:
-        print("❌ No game_nickname provided")
+        print("❌ No telegram_username provided")
     
     print("❌ Permission denied - invalid token or not admin")
     raise PermissionError("invalid token or not admin")
@@ -2370,23 +2268,13 @@ def api_check_admin():
     game_nickname = request.args.get("game_nickname", "").strip()
     telegram_id = request.args.get("telegram_id", "").strip()
     
-    # If game_nickname not provided, try to get it from telegram_id
-    if not game_nickname and telegram_id:
-        try:
-            with get_db() as db:
-                user = db.execute("SELECT game_nickname FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
-                if user and user["game_nickname"]:
-                    game_nickname = user["game_nickname"]
-                    print(f"🔍 Got game_nickname from telegram_id: '{game_nickname}'")
-        except Exception as e:
-            print(f"⚠️ Error fetching game_nickname: {e}")
+    print(f"📋 /api/telegram/check-admin called: game_nickname='{game_nickname}', telegram_id='{telegram_id}'")
     
-    if not game_nickname:
-        print("❌ No game_nickname provided")
+    if not game_nickname and not telegram_id:
+        print("❌ No game_nickname or telegram_id provided")
         return jsonify({"ok": False, "is_admin": False, "error": "game_nickname or telegram_id required"}), 400
     
-    game_nickname = game_nickname.strip().lower()
-    is_admin = check_is_admin(game_nickname)
+    is_admin = check_is_admin(game_nickname, telegram_id)
     result = {"ok": True, "is_admin": is_admin, "game_nickname": game_nickname, "admin_list": ADMIN_GAME_NICKNAMES}
     print(f"📋 Returning: {result}")
     return jsonify(result)
