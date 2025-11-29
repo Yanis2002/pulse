@@ -487,16 +487,23 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // Process Telegram authentication - register user and show modals if needed
     function processTelegramAuth(user) {
+        console.log('=== processTelegramAuth called ===', user);
+        
         const playerName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
         const telegramUsername = user.username || '';
         const telegramId = user.id.toString();
         
-        // Save to localStorage
-        localStorage.setItem('pulse_player_name', playerName);
-        localStorage.setItem('pulse_telegram_id', telegramId);
-        if (telegramUsername) {
-            localStorage.setItem('pulse_telegram_username', telegramUsername);
-        }
+        const registrationData = {
+            telegram_id: telegramId,
+            first_name: user.first_name || '',
+            last_name: user.last_name || '',
+            username: telegramUsername,
+            language_code: user.language_code || 'ru',
+            is_bot: false,
+            registration_source: 'telegram_widget'
+        };
+        
+        console.log('Sending registration data to server:', registrationData);
         
         // Register user on server
         fetch('/api/telegram/register', {
@@ -504,31 +511,40 @@ document.addEventListener('DOMContentLoaded', function(){
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                telegram_id: telegramId,
-                first_name: user.first_name || '',
-                last_name: user.last_name || '',
-                username: telegramUsername,
-                language_code: user.language_code || 'ru',
-                is_bot: false,
-                registration_source: 'telegram_widget'
-            })
+            body: JSON.stringify(registrationData)
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Registration response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Registration response data:', data);
             if (data.ok) {
-                console.log('User registered successfully');
+                console.log('✅ User registered successfully in database');
+                alert('✅ Регистрация успешна! Ваши данные сохранены в базе данных.');
+                
                 // Update profile display (reload from server to get latest data)
                 loadProfileData();
                 
+                // Check admin status after registration
+                if (telegramUsername) {
+                    console.log('Checking admin status for:', telegramUsername);
+                    checkAdminStatus(telegramUsername);
+                }
+                
                 // Check if offer needs to be accepted
                 if (!data.offer_accepted) {
+                    console.log('Offer not accepted, showing offer modal');
                     const offerModal = document.getElementById('offer-modal');
                     if (offerModal) {
                         offerModal.style.display = 'block';
                         offerModal.classList.add('active');
                     }
                 } else if (!data.game_nickname) {
+                    console.log('Offer accepted but no nickname, showing nickname modal');
                     // Offer accepted but no nickname - show nickname modal
                     const nicknameModal = document.getElementById('nickname-modal');
                     if (nicknameModal) {
@@ -536,6 +552,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         nicknameModal.classList.add('active');
                     }
                 } else {
+                    console.log('All set, closing profile modal');
                     // All set - close profile modal and reload if on dashboard
                     const profileModal = document.getElementById('profile-modal');
                     const profileBackdrop = document.getElementById('profile-backdrop');
@@ -547,13 +564,13 @@ document.addEventListener('DOMContentLoaded', function(){
                     }
                 }
             } else {
-                console.error('Registration error:', data.error);
+                console.error('❌ Registration error:', data.error);
                 alert('Ошибка регистрации: ' + (data.error || 'неизвестная ошибка'));
             }
         })
         .catch(error => {
-            console.error('Error registering user:', error);
-            alert('Ошибка при регистрации. Пожалуйста, попробуйте еще раз.');
+            console.error('❌ Error registering user:', error);
+            alert('Ошибка при регистрации: ' + error.message + '\n\nПроверьте консоль браузера (F12) для подробностей.');
         });
     }
     
