@@ -279,7 +279,10 @@ document.addEventListener('DOMContentLoaded', function(){
     initTelegramWebAppAuth();
     const audio = document.getElementById('music-player');
     const toggle = document.getElementById('music-toggle');
-    if(!audio || !toggle) return;
+    if(!audio || !toggle) {
+        console.warn('⚠️ Music player or toggle button not found');
+        return;
+    }
     let isPlaying = false;
     let savedTime = 0;
     const isTimerPage = window.location.pathname === '/timer';
@@ -1654,5 +1657,51 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     }
     initModals();
+})();
+</script>
+
+<script>
+// Suppress Google Docs iframe errors and other non-critical errors
+(function() {
+    // Suppress error events from iframes
+    window.addEventListener('error', function(e) {
+        if (e.message && (
+            e.message.includes('filesystem:https://docs.google.com') ||
+            e.message.includes('ERR_FILE_NOT_FOUND') ||
+            e.message.includes('page_embed_script.js') ||
+            e.message.includes('peoplestack-pa.client') ||
+            e.filename && e.filename.includes('docs.google.com')
+        )) {
+            e.preventDefault();
+            e.stopPropagation();
+            return true;
+        }
+    }, true);
+    
+    // Suppress console errors from iframes
+    const originalError = console.error;
+    console.error = function(...args) {
+        const message = args.join(' ');
+        if (message.includes('filesystem:https://docs.google.com') ||
+            message.includes('ERR_FILE_NOT_FOUND') ||
+            message.includes('page_embed_script.js') ||
+            message.includes('peoplestack-pa.client') ||
+            message.includes('docs.google.com')) {
+            return; // Suppress these errors
+        }
+        originalError.apply(console, args);
+    };
+    
+    // Suppress resource loading errors
+    window.addEventListener('unhandledrejection', function(e) {
+        if (e.reason && (
+            e.reason.message && (
+                e.reason.message.includes('docs.google.com') ||
+                e.reason.message.includes('ERR_FILE_NOT_FOUND')
+            )
+        )) {
+            e.preventDefault();
+        }
+    });
 })();
 </script>
