@@ -434,8 +434,9 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // Define onTelegramAuth BEFORE widget initialization to ensure it's available
     // Telegram auth callback - simple version as in Telegram docs
+    console.log('🔧 Defining window.onTelegramAuth function...');
     window.onTelegramAuth = function(user) {
-        console.log('=== Telegram auth callback received ===', user);
+        console.log('🎉 === Telegram auth callback received ===', user);
         console.log('User object:', JSON.stringify(user, null, 2));
         
         if (!user || !user.id) {
@@ -481,21 +482,39 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // Telegram Login Widget
     function initTelegramWidget() {
+        console.log('🔧 initTelegramWidget called');
+        
         const container = document.getElementById('telegram-widget-container');
-        if (!container) return;
+        if (!container) {
+            console.error('❌ telegram-widget-container not found!');
+            return;
+        }
+        
+        console.log('✅ Container found:', container);
+        
+        // Verify onTelegramAuth is defined
+        if (typeof window.onTelegramAuth !== 'function') {
+            console.error('❌ window.onTelegramAuth is not a function!', typeof window.onTelegramAuth);
+            container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--accent-soft); font-size: 1.3vh;">❌ Ошибка: функция onTelegramAuth не определена. Обновите страницу.</div>';
+            return;
+        }
+        console.log('✅ window.onTelegramAuth is defined');
         
         // Remove existing widget if any
         const existingScript = document.querySelector('script[data-telegram-login]');
         if (existingScript) {
+            console.log('🗑️ Removing existing widget script');
             existingScript.remove();
         }
         
         // Clear container
-        container.innerHTML = '';
+        container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--text-muted); font-size: 1.3vh;">Загрузка виджета...</div>';
         
         // Check current domain
         const currentDomain = window.location.hostname;
         const isLocalhost = currentDomain === 'localhost' || currentDomain === '127.0.0.1' || currentDomain.startsWith('192.168.');
+        
+        console.log('🌐 Current domain:', currentDomain, 'isLocalhost:', isLocalhost);
         
         // Show domain registration notice if needed
         if (isLocalhost) {
@@ -513,8 +532,29 @@ document.addEventListener('DOMContentLoaded', function(){
         script.setAttribute('data-onauth', 'onTelegramAuth');
         script.setAttribute('data-request-access', 'write');
         
+        console.log('📝 Widget script attributes set:', {
+            'data-telegram-login': 'Pulse_Club_bot',
+            'data-size': 'large',
+            'data-onauth': 'onTelegramAuth'
+        });
+        
+        // Handle widget script load
+        script.onload = function() {
+            console.log('✅ Telegram widget script loaded successfully');
+            // Check if widget rendered
+            setTimeout(function() {
+                const widgetButton = container.querySelector('iframe, .tgme_widget_login_button, button');
+                if (widgetButton) {
+                    console.log('✅ Widget button found:', widgetButton);
+                } else {
+                    console.warn('⚠️ Widget button not found after load');
+                }
+            }, 1000);
+        };
+        
         // Handle widget errors
         script.onerror = function() {
+            console.error('❌ Failed to load Telegram widget script');
             container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--accent-soft); font-size: 1.3vh; line-height: 1.6;">❌ Ошибка загрузки виджета Telegram.<br><br>Убедитесь, что домен зарегистрирован через @BotFather:<br><code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">/setdomain</code><br><br>Текущий домен: <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">' + currentDomain + '</code></div>';
         };
         
@@ -523,13 +563,18 @@ document.addEventListener('DOMContentLoaded', function(){
             const widgetError = container.querySelector('.tgme_widget_error');
             if (widgetError) {
                 const errorText = widgetError.textContent || '';
+                console.error('❌ Widget error detected:', errorText);
                 if (errorText.includes('domain') || errorText.includes('invalid')) {
                     container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--accent-soft); font-size: 1.3vh; line-height: 1.6;">⚠️ Домен не зарегистрирован в боте.<br><br>Для регистрации домена:<br>1. Откройте @BotFather в Telegram<br>2. Выберите бота <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">Pulse_Club_bot</code><br>3. Отправьте команду <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">/setdomain</code><br>4. Укажите домен: <code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">' + currentDomain + '</code></div>';
                 }
+            } else {
+                console.log('✅ No widget errors detected');
             }
         }, 2000);
         
+        console.log('📤 Appending widget script to container');
         container.appendChild(script);
+        console.log('✅ Widget script appended');
     }
     
     // Process Telegram authentication - register user and show modals if needed
@@ -705,7 +750,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 checkAdminStatus(telegramUsername);
             }
             // Initialize Telegram widget when modal opens (with delay to ensure DOM is ready)
+            console.log('👤 Profile modal opened, initializing Telegram widget...');
             setTimeout(function() {
+                console.log('⏰ Timeout fired, calling initTelegramWidget...');
                 initTelegramWidget();
             }, 200);
         });
