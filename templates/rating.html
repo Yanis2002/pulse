@@ -979,6 +979,16 @@
 
     <script> 
 $(document).ready(function() {
+    console.log("📋 Rating page: DOM ready, initializing handlers...");
+    
+    // Check if buttons exist
+    console.log("🔍 Checking buttons:", {
+        "setup-webhook": $("#setup-webhook").length,
+        "migrate-database": $("#migrate-database").length,
+        "download-backup": $("#download-backup").length,
+        "send-broadcast": $("#send-broadcast").length
+    });
+    
     // Splash screen logic - show only on hard reload (F5/Ctrl+R), not on navigation
     const mainContent = document.getElementById("main-content");
     const splashEl = document.getElementById("splash");
