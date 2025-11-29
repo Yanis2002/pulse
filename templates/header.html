@@ -1166,14 +1166,6 @@ document.addEventListener('DOMContentLoaded', function(){
         .catch(error => {
             console.error('❌ Error during registration or status check:', error);
             alert('Ошибка при регистрации. Попробуйте еще раз.');
-        }); else {
-                console.error('❌ Registration error:', data.error);
-                alert('Ошибка регистрации: ' + (data.error || 'неизвестная ошибка'));
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error registering user:', error);
-            alert('Ошибка при регистрации: ' + error.message + '\n\nПроверьте консоль браузера (F12) для подробностей.');
         });
     }
     
