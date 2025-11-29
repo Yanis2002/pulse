@@ -1243,8 +1243,10 @@ $(document).ready(function() {
     // Helper function to add telegram_username to admin requests
     function addAdminData(data) {
         const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+        const telegramId = localStorage.getItem('pulse_telegram_id') || '';
         if (typeof data === 'object' && data !== null) {
             data.telegram_username = telegramUsername;
+            data.telegram_id = telegramId;
         }
         return data;
     }
