@@ -13,6 +13,23 @@ import shutil
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
 
+# Import Telegram bot module
+try:
+    from telegram_bot import (
+        process_webhook_update,
+        send_tournament_registration_confirmation,
+        send_migration_notification,
+        get_webhook_info,
+        setup_webhook,
+        broadcast_message,
+        TELEGRAM_BOT_TOKEN
+    )
+    TELEGRAM_BOT_AVAILABLE = True
+except ImportError as e:
+    print(f"WARNING: Telegram bot module not available: {e}")
+    TELEGRAM_BOT_AVAILABLE = False
+    TELEGRAM_BOT_TOKEN = None
+
 try:
     import requests
     REQUESTS_AVAILABLE = True
@@ -23,7 +40,6 @@ except ImportError:
 
 
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "local-admin")
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8574583723:AAHGnyANIA7z_7yPftV1q_HBoYWH4XkMVnI")
 
 # Admin telegram_id for migration notifications
 ADMIN_TELEGRAM_ID = os.environ.get("ADMIN_TELEGRAM_ID", "463639949")
@@ -2207,163 +2223,26 @@ def api_export_telegram_users():
 @app.route("/api/telegram/webhook", methods=["POST", "GET"])
 def api_telegram_webhook():
     """Webhook endpoint for Telegram bot updates."""
-    if not TELEGRAM_BOT_TOKEN:
-        print("TELEGRAM_BOT_TOKEN not configured")
-        return jsonify({"ok": False, "error": "bot token not configured"}), 500
+    if not TELEGRAM_BOT_AVAILABLE:
+        return jsonify({"ok": False, "error": "Telegram bot module not available"}), 500
     
     try:
         # Telegram sends updates as JSON in POST body
         if request.method == "POST":
             update = request.get_json()
+            # Process update using bot module
+            result = process_webhook_update(update, get_db)
+            return jsonify(result)
         else:
-            # GET request - return info
-            return jsonify({"ok": True, "message": "Webhook endpoint is active"})
-        
-        if not update:
-            print("No update data received")
-            return jsonify({"ok": False, "error": "no data"}), 400
-        
-        print(f"Received Telegram update: {json.dumps(update, indent=2)}")
-        
-        # Handle message updates
-        if "message" in update:
-            message = update["message"]
-            user = message.get("from")
-            chat_id = message.get("chat", {}).get("id")
-            
-            if user and chat_id:
-                telegram_id = str(user.get("id"))
-                first_name = user.get("first_name", "")
-                last_name = user.get("last_name", "")
-                username = user.get("username", "")
-                language_code = user.get("language_code", "")
-                is_bot = user.get("is_bot", False)
-                
-                # Handle /start command - register user in the same database as website
-                if message.get("text") and message["text"].startswith("/start"):
-                    print(f"📥 /start command received from user: {telegram_id}, {first_name}, {username}")
-                    
-                    # Register user to database using the same logic as website
-                    # This ensures bot and website use the same database
-                    try:
-                        with get_db() as db:
-                            # Ensure telegram_users table exists (same as website)
-                            try:
-                                db.execute("SELECT 1 FROM telegram_users LIMIT 1")
-                            except sqlite3.OperationalError:
-                                print("telegram_users table does not exist, creating it...")
-                                db.execute("""
-                                    CREATE TABLE IF NOT EXISTS telegram_users (
-                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                        telegram_id TEXT NOT NULL UNIQUE,
-                                        first_name TEXT NOT NULL,
-                                        last_name TEXT,
-                                        username TEXT,
-                                        language_code TEXT,
-                                        is_bot BOOLEAN DEFAULT 0,
-                                        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                        last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                        registration_source TEXT DEFAULT 'telegram_widget',
-                                        offer_accepted BOOLEAN DEFAULT 0,
-                                        offer_accepted_at TIMESTAMP,
-                                        game_nickname TEXT
-                                    )
-                                """)
-                                db.commit()
-                                print("telegram_users table created successfully")
-                            
-                            # Check if user exists to preserve offer_accepted and game_nickname
-                            existing = db.execute(
-                                "SELECT offer_accepted, game_nickname FROM telegram_users WHERE telegram_id = ?",
-                                (telegram_id,)
-                            ).fetchone()
-                            
-                            if existing:
-                                print(f"✅ User {telegram_id} already exists, updating...")
-                                # Update user but preserve offer_accepted and game_nickname
-                                db.execute("""
-                                    UPDATE telegram_users 
-                                    SET first_name = ?, last_name = ?, username = ?, language_code = ?, 
-                                        is_bot = ?, registration_source = ?, last_active = CURRENT_TIMESTAMP
-                                    WHERE telegram_id = ?
-                                """, (first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot", telegram_id))
-                                offer_accepted = existing["offer_accepted"] if existing["offer_accepted"] else False
-                                game_nickname = existing["game_nickname"] if existing["game_nickname"] else None
-                                print(f"User updated successfully. offer_accepted: {offer_accepted}, game_nickname: {game_nickname}")
-                            else:
-                                print(f"✅ New user {telegram_id}, inserting...")
-                                # New user - same structure as website registration
-                                db.execute("""
-                                    INSERT INTO telegram_users 
-                                    (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active, offer_accepted)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0)
-                                """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot"))
-                                print(f"User inserted successfully")
-                            
-                            db.commit()
-                            print(f"✅ User {telegram_id} registered/updated in database from /start command")
-                    except Exception as e:
-                        print(f"❌ Error saving Telegram user from /start: {e}")
-                        import traceback
-                        traceback.print_exc()
-                    try:
-                        # Get base URL from environment or use default
-                        base_url = os.environ.get("BASE_URL", "https://pulse-390031593512.europe-north1.run.app")
-                        
-                        welcome_text = (
-                            "🎰 Добро пожаловать в PULSE | CLUB!\n\n"
-                            "Это бот для записи на турниры по покеру в Санкт-Петербурге.\n\n"
-                            "📋 Для записи на турниры:\n"
-                            "1. Откройте сайт через кнопку ниже\n"
-                            "2. Примите публичную оферту\n"
-                            "3. Укажите игровой никнейм\n\n"
-                            "После этого вы сможете записываться на турниры и получать уведомления о подтверждении регистрации!"
-                        )
-                        
-                        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-                        
-                        # Create inline keyboard with Web App button for auto-authorization
-                        keyboard = {
-                            "inline_keyboard": [[
-                                {
-                                    "text": "🌐 Открыть сайт PULSE | CLUB",
-                                    "web_app": {"url": base_url}
-                                }
-                            ]]
-                        }
-                        
-                        response = requests.post(url, json={
-                            "chat_id": chat_id,
-                            "text": welcome_text,
-                            "reply_markup": keyboard,
-                            "parse_mode": "HTML"
-                        }, timeout=10)
-                        
-                        if response.status_code == 200:
-                            result = response.json()
-                            if result.get("ok"):
-                                print(f"✅ Welcome message sent successfully to {telegram_id}")
-                            else:
-                                print(f"⚠️ Failed to send message: {result}")
-                        else:
-                            print(f"❌ Error sending message: HTTP {response.status_code} - {response.text}")
-                    except Exception as e:
-                        print(f"❌ Error sending welcome message: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        # Try to send a simple error message
-                        try:
-                            error_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-                            requests.post(error_url, json={
-                                "chat_id": chat_id,
-                                "text": "❌ Произошла ошибка при отправке сообщения. Попробуйте позже."
-                            }, timeout=5)
-                        except Exception as err:
-                            print(f"❌ Could not send error message: {err}")
-        
-        return jsonify({"ok": True})
+            # GET request - return info and webhook status
+            webhook_info = get_webhook_info()
+            return jsonify({
+                "ok": True, 
+                "message": "Webhook endpoint is active",
+                "webhook_info": webhook_info
+            })
     except Exception as e:
-        print(f"Error processing webhook: {e}")
+        print(f"❌ Error processing webhook: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -2514,6 +2393,9 @@ def api_setup_webhook():
 @app.route("/api/telegram/broadcast", methods=["POST"])
 def api_telegram_broadcast():
     """Send broadcast message to all registered users (admin only)."""
+    if not TELEGRAM_BOT_AVAILABLE:
+        return jsonify({"ok": False, "error": "Telegram bot module not available"}), 500
+    
     data = request.get_json() or {}
     token = data.get("token", "")
     telegram_username = data.get("telegram_username", "")
@@ -2524,62 +2406,12 @@ def api_telegram_broadcast():
     except PermissionError:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     
-    if not TELEGRAM_BOT_TOKEN:
-        return jsonify({"ok": False, "error": "bot token not configured"}), 500
-    
     if not message:
         return jsonify({"ok": False, "error": "message required"}), 400
     
-    try:
-        with get_db() as db:
-            users = db.execute("""
-                SELECT telegram_id FROM telegram_users
-                WHERE is_bot = 0 AND telegram_id IS NOT NULL
-            """).fetchall()
-        
-        print(f"Broadcasting to {len(users)} users")
-        
-        success_count = 0
-        error_count = 0
-        errors = []
-        
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        
-        for user in users:
-            try:
-                telegram_id = user["telegram_id"]
-                # Skip manual registrations (they start with "manual_")
-                if telegram_id.startswith("manual_"):
-                    continue
-                    
-                response = requests.post(url, json={
-                    "chat_id": int(telegram_id),
-                    "text": message,
-                    "parse_mode": "HTML"
-                }, timeout=5)
-                
-                result = response.json()
-                if result.get("ok"):
-                    success_count += 1
-                else:
-                    error_count += 1
-                    errors.append(f"User {telegram_id}: {result.get('description', 'unknown error')}")
-            except Exception as e:
-                error_count += 1
-                errors.append(f"User {user.get('telegram_id', 'unknown')}: {str(e)}")
-        
-        return jsonify({
-            "ok": True,
-            "sent": success_count,
-            "failed": error_count,
-            "total": len(users),
-            "errors": errors[:10]  # First 10 errors
-        })
-    except Exception as e:
-        print(f"Error in broadcast: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"ok": False, "error": str(e)}), 500
+    # Use bot module to broadcast message
+    result = broadcast_message(message, get_db)
+    return jsonify(result)
 
 
 def require_admin(data):
@@ -2849,123 +2681,8 @@ def migrate_database():
         return False
 
 
-def send_tournament_registration_confirmation(telegram_id, event):
-    """Send tournament registration confirmation message to user via Telegram bot."""
-    if not TELEGRAM_BOT_TOKEN or not REQUESTS_AVAILABLE:
-        print("⚠️ Cannot send registration confirmation: TELEGRAM_BOT_TOKEN or requests not available")
-        return
-    
-    try:
-        # Format date from YYYY-MM-DD to DD month name
-        event_date = event.get("date", "")
-        event_time = event.get("time", "")
-        event_type = event.get("event_type", "")
-        description = event.get("description", "")
-        
-        # Parse date
-        date_obj = None
-        try:
-            date_obj = datetime.strptime(event_date, "%Y-%m-%d")
-            day = date_obj.day
-            month_names = {
-                1: "января", 2: "февраля", 3: "марта", 4: "апреля",
-                5: "мая", 6: "июня", 7: "июля", 8: "августа",
-                9: "сентября", 10: "октября", 11: "ноября", 12: "декабря"
-            }
-            month_name = month_names.get(date_obj.month, "")
-            formatted_date = f"{day} {month_name}"
-        except:
-            formatted_date = event_date
-        
-        # Format time
-        try:
-            time_obj = datetime.strptime(event_time, "%H:%M")
-            formatted_time = time_obj.strftime("%H:%M")
-        except:
-            formatted_time = event_time
-        
-        # Format tournament name
-        if date_obj and event_type:
-            tournament_name = f"{event_type} — {date_obj.strftime('%d.%m')} {formatted_time}"
-        else:
-            tournament_name = description or "Турнир"
-        
-        # Build confirmation message
-        message = (
-            "✅Ваша регистрация на турнир подтверждена! ✅\n\n"
-            f"▪️ 🗓 Дата: {formatted_date}\n\n"
-            f"▪️ ⏰ Начало: {formatted_time}\n\n"
-            f"▪️ 🏆 Турнир: {tournament_name}\n\n"
-            "📍 Адрес: СПБ, улица Восстания, 15С\n\n"
-            "🧭 Как пройти: https://yandex.ru/maps/-/CLW~qQKs\n\n"
-            "⏰ Поздняя регистрация и ре-энтри открыты до 20:30:00\n\n"
-            "🔺 (это время, до которого можно присоединиться к турниру)\n\n"
-            "⚠️Правила ответственного бронирования:\n\n"
-            "🔺 Предупредите об отмене минимум за 2 часа для того чтобы слоты не пропадали — иначе в следующий раз запись по предоплате, проявляйте уважение к другим участникам клуба.\n\n"
-            "❗️Важно: Играем не на деньги. Призы не предусмотрены. 18+\n\n"
-            "🔺 Оплата производится за аренду инвентаря картой или QR-кодом\n\n"
-            "🔺 Оплата наличными невозможна\n\n"
-            "Остались вопросы? Поддержка 24/7"
-        )
-        
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        response = requests.post(url, json={
-            "chat_id": telegram_id,
-            "text": message,
-            "parse_mode": "HTML"
-        }, timeout=10)
-        
-        if response.status_code == 200:
-            print(f"✅ Registration confirmation sent to user (telegram_id: {telegram_id})")
-        else:
-            print(f"⚠️ Failed to send registration confirmation: {response.status_code} - {response.text}")
-            
-    except Exception as e:
-        print(f"❌ Error sending registration confirmation: {e}")
-        import traceback
-        traceback.print_exc()
-
-
-def send_migration_notification(success=True, backup_path=None, error=None):
-    """Send Telegram notification about migration status to admin."""
-    if not TELEGRAM_BOT_TOKEN or not REQUESTS_AVAILABLE:
-        print("⚠️ Cannot send migration notification: TELEGRAM_BOT_TOKEN or requests not available")
-        return
-    
-    try:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        if success:
-            message = (
-                f"✅ Миграция базы данных проведена успешно\n\n"
-                f"📅 Дата и время: {timestamp}\n"
-                f"💾 Резервная копия создана\n"
-                f"🔄 База данных оптимизирована (VACUUM)\n\n"
-                f"Все данные сохранены и защищены от потери."
-            )
-        else:
-            error_text = error or "Неизвестная ошибка"
-            message = (
-                f"❌ Ошибка при миграции базы данных\n\n"
-                f"📅 Дата и время: {timestamp}\n"
-                f"⚠️ Ошибка: {error_text}\n\n"
-                f"Требуется проверка системы."
-            )
-        
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        response = requests.post(url, json={
-            "chat_id": ADMIN_TELEGRAM_ID,
-            "text": message,
-            "parse_mode": "HTML"
-        }, timeout=10)
-        
-        if response.status_code == 200:
-            print(f"✅ Migration notification sent to admin (telegram_id: {ADMIN_TELEGRAM_ID})")
-        else:
-            print(f"⚠️ Failed to send migration notification: {response.status_code} - {response.text}")
-            
-    except Exception as e:
-        print(f"❌ Error sending migration notification: {e}")
+# Functions send_tournament_registration_confirmation and send_migration_notification
+# are now imported from telegram_bot.py module
 
 
 def schedule_daily_migration():
