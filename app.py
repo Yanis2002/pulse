@@ -1122,42 +1122,57 @@ def api_get_events():
     
     try:
         with get_db() as db:
+            # First, check if events table exists and has required columns
+            try:
+                # Test query to check table structure
+                db.execute("SELECT 1 FROM events LIMIT 1")
+            except sqlite3.OperationalError as e:
+                print(f"❌ Events table error: {e}")
+                # Try to recreate events table if it doesn't exist
+                init_db()
+            
+            # Simplified query to avoid GROUP BY issues with NULL values
             events = db.execute("""
                 SELECT e.id, e.date, e.time, e.event_type, e.description, 
                        COALESCE(e.max_places, 20) as max_places,
-                       COALESCE(e.price, 1000) as price,
-                       COALESCE(GROUP_CONCAT(er.player_name, '|'), '') as registered_players,
-                       COALESCE(GROUP_CONCAT(er.telegram_username, '|'), '') as telegram_usernames,
-                       COUNT(er.id) as registration_count
+                       COALESCE(e.price, 1000) as price
                 FROM events e
-                LEFT JOIN event_registrations er ON e.id = er.event_id
                 WHERE e.date >= ? AND e.date <= ?
-                GROUP BY e.id, e.date, e.time, e.event_type, e.description, e.max_places, e.price
                 ORDER BY e.date, e.time
             """, (start_date, end_date)).fetchall()
             
+            # Get registrations separately for each event
+            event_ids = [event["id"] for event in events]
+            registrations = {}
+            if event_ids:
+                placeholders = ",".join("?" * len(event_ids))
+                regs = db.execute(f"""
+                    SELECT event_id, player_name, telegram_username, telegram_id
+                    FROM event_registrations
+                    WHERE event_id IN ({placeholders})
+                """, event_ids).fetchall()
+                for reg in regs:
+                    event_id = reg["event_id"]
+                    if event_id not in registrations:
+                        registrations[event_id] = {"players": [], "usernames": [], "telegram_ids": []}
+                    if reg["player_name"]:
+                        registrations[event_id]["players"].append(reg["player_name"])
+                    if reg["telegram_username"]:
+                        registrations[event_id]["usernames"].append(reg["telegram_username"])
+                    if reg["telegram_id"]:
+                        registrations[event_id]["telegram_ids"].append(reg["telegram_id"])
+            
             result = []
             for event in events:
-                registered = []
-                telegram_users = []
-                reg_players = event["registered_players"] or ""
-                if reg_players:
-                    registered = [p for p in reg_players.split("|") if p]
-                tel_users = event["telegram_usernames"] or ""
-                if tel_users:
-                    telegram_users = [u for u in tel_users.split("|") if u]
+                event_id = event["id"]
+                reg_data = registrations.get(event_id, {"players": [], "usernames": [], "telegram_ids": []})
+                registered = reg_data["players"]
+                telegram_users = reg_data["usernames"]
                 
                 # Check if current user is registered
                 is_user_registered = False
-                if telegram_id:
-                    try:
-                        check = db.execute("""
-                            SELECT id FROM event_registrations 
-                            WHERE event_id = ? AND telegram_id = ?
-                        """, (event["id"], telegram_id)).fetchone()
-                        is_user_registered = check is not None
-                    except Exception:
-                        pass
+                if telegram_id and telegram_id in reg_data["telegram_ids"]:
+                    is_user_registered = True
                 
                 # Get max_places and price, defaulting to 20 and 1000 if None
                 max_places = event.get("max_places")
@@ -1188,7 +1203,7 @@ def api_get_events():
                     "price": price,
                     "registered": registered,
                     "telegram_users": telegram_users,
-                    "registration_count": event["registration_count"] or 0,
+                    "registration_count": len(registered),
                     "is_registered": is_user_registered
                 })
             
@@ -1236,6 +1251,7 @@ def api_create_event():
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (date, time, event_type, description, max_places, price))
             event_id = cursor.lastrowid
+            db.commit()  # Explicit commit to ensure data is saved
         socketio.emit("events_update", {"date": date})
         return jsonify({"ok": True, "event_id": event_id})
     except sqlite3.IntegrityError:
