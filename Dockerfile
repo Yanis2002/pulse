@@ -18,12 +18,9 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Set environment variable (Railway will override PORT)
+# Set environment variable
 ENV PORT=8000
-ENV DB_DIR=/data
 
-# Run gunicorn with eventlet
-# Railway automatically sets PORT environment variable, gunicorn will use it
-# We use a wrapper script to properly handle PORT variable
-CMD ["sh", "-c", "exec gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-8000} --timeout 120 --access-logfile - --error-logfile - --log-level debug wsgi:application"]
+# Run gunicorn with eventlet (with timeout and logging)
+CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:8000", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "debug", "wsgi:application"]
 
