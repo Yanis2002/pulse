@@ -564,13 +564,45 @@ document.addEventListener('DOMContentLoaded', function(){
                             if (event.origin === 'https://oauth.telegram.org' && event.data) {
                                 console.log('✅ Message from Telegram OAuth:', event.data);
                                 
-                                // If it's user data, process it
-                                if (event.data.id || event.data.user) {
-                                    const userData = event.data.user || event.data;
+                                let userData = null;
+                                
+                                // Parse data if it's a string
+                                let parsedData = event.data;
+                                if (typeof event.data === 'string') {
+                                    try {
+                                        parsedData = JSON.parse(event.data);
+                                        console.log('📋 Parsed data:', parsedData);
+                                    } catch (e) {
+                                        console.error('❌ Failed to parse JSON:', e);
+                                        return;
+                                    }
+                                }
+                                
+                                // Check for auth_data in the parsed data
+                                if (parsedData && parsedData.auth_data) {
+                                    userData = parsedData.auth_data;
+                                    console.log('🎉 User data extracted from auth_data:', userData);
+                                } else if (parsedData && parsedData.id) {
+                                    // Direct user data
+                                    userData = parsedData;
+                                    console.log('🎉 User data found directly:', userData);
+                                } else if (parsedData && parsedData.user) {
+                                    userData = parsedData.user;
+                                    console.log('🎉 User data found in user field:', userData);
+                                }
+                                
+                                // Process user data if found
+                                if (userData && userData.id) {
                                     console.log('🎉 User data received via postMessage:', userData);
+                                    console.log('🎉 Calling onTelegramAuth with:', userData);
+                                    
                                     if (typeof window.onTelegramAuth === 'function') {
                                         window.onTelegramAuth(userData);
+                                    } else {
+                                        console.error('❌ window.onTelegramAuth is not a function!');
                                     }
+                                } else {
+                                    console.warn('⚠️ No valid user data found in message');
                                 }
                             }
                         });
