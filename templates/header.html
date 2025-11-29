@@ -478,10 +478,123 @@ document.addEventListener('DOMContentLoaded', function(){
             console.log('Updated profile telegram:', displayText);
         }
         
-        // Process authentication (register on server)
-        console.log('Calling processTelegramAuth...');
-        processTelegramAuth(user);
+        // Check if offer is already accepted BEFORE registering
+        console.log('🔍 Checking offer status before registration...');
+        checkOfferAndRegister(user);
     };
+    
+    // Check offer status and proceed with registration only if accepted
+    function checkOfferAndRegister(user) {
+        const telegramId = user.id.toString();
+        
+        // Check user status from server
+        fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('📋 User status from server:', data);
+                
+                if (data.ok && data.offer_accepted) {
+                    // Offer already accepted, proceed with registration
+                    console.log('✅ Offer already accepted, proceeding with registration');
+                    processTelegramAuth(user);
+                } else {
+                    // Offer not accepted, show offer modal first
+                    console.log('📋 Offer not accepted, showing offer modal');
+                    showOfferModal(user);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error checking user status:', error);
+                // If error, assume new user and show offer
+                showOfferModal(user);
+            });
+    }
+    
+    // Show offer modal and handle acceptance
+    function showOfferModal(user) {
+        const offerModal = document.getElementById('offer-modal');
+        if (!offerModal) {
+            console.error('❌ Offer modal not found');
+            // If modal not found, proceed with registration anyway
+            processTelegramAuth(user);
+            return;
+        }
+        
+        // Store user data temporarily to use after offer acceptance
+        window._pendingTelegramUser = user;
+        
+        // Show offer modal
+        offerModal.style.display = 'block';
+        offerModal.classList.add('active');
+        
+        // Handle offer acceptance
+        const offerAcceptBtn = document.getElementById('offer-accept-btn');
+        const offerRejectBtn = document.getElementById('offer-reject-btn');
+        
+        if (offerAcceptBtn) {
+            // Remove old listeners
+            const newAcceptBtn = offerAcceptBtn.cloneNode(true);
+            offerAcceptBtn.parentNode.replaceChild(newAcceptBtn, offerAcceptBtn);
+            
+            newAcceptBtn.addEventListener('click', function() {
+                console.log('✅ Offer accepted, proceeding with registration');
+                acceptOfferAndRegister(user);
+            });
+        }
+        
+        if (offerRejectBtn) {
+            // Remove old listeners
+            const newRejectBtn = offerRejectBtn.cloneNode(true);
+            offerRejectBtn.parentNode.replaceChild(newRejectBtn, offerRejectBtn);
+            
+            newRejectBtn.addEventListener('click', function() {
+                console.log('❌ Offer rejected, closing modal');
+                const offerModal = document.getElementById('offer-modal');
+                if (offerModal) {
+                    offerModal.style.display = 'none';
+                    offerModal.classList.remove('active');
+                }
+                // Do nothing else - user cannot proceed without accepting
+            });
+        }
+    }
+    
+    // Accept offer and register user
+    function acceptOfferAndRegister(user) {
+        const telegramId = user.id.toString();
+        
+        // Accept offer on server
+        fetch('/api/telegram/accept-offer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                telegram_id: telegramId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                console.log('✅ Offer accepted on server');
+                // Close offer modal
+                const offerModal = document.getElementById('offer-modal');
+                if (offerModal) {
+                    offerModal.style.display = 'none';
+                    offerModal.classList.remove('active');
+                }
+                // Now proceed with registration
+                processTelegramAuth(user);
+            } else {
+                console.error('❌ Error accepting offer:', data.error);
+                alert('Ошибка при принятии оферты: ' + (data.error || 'неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error accepting offer:', error);
+            alert('Ошибка при принятии оферты. Пожалуйста, попробуйте еще раз.');
+        });
+    }
     
     // Telegram Login Widget
     function initTelegramWidget() {
@@ -704,15 +817,8 @@ document.addEventListener('DOMContentLoaded', function(){
                     checkAdminStatus(telegramUsername);
                 }
                 
-                // Check if offer needs to be accepted
-                if (!data.offer_accepted) {
-                    console.log('Offer not accepted, showing offer modal');
-                    const offerModal = document.getElementById('offer-modal');
-                    if (offerModal) {
-                        offerModal.style.display = 'block';
-                        offerModal.classList.add('active');
-                    }
-                } else if (!data.game_nickname) {
+                // After registration, check if nickname is needed
+                if (!data.game_nickname) {
                     console.log('Offer accepted but no nickname, showing nickname modal');
                     // Offer accepted but no nickname - show nickname modal
                     const nicknameModal = document.getElementById('nickname-modal');

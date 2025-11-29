@@ -1789,8 +1789,9 @@ def api_register_telegram_user():
                         is_bot = ?, registration_source = ?, last_active = CURRENT_TIMESTAMP
                     WHERE telegram_id = ?
                 """, (first_name, last_name or None, username or None, language_code or None, is_bot, registration_source, telegram_id))
-                offer_accepted = existing.get("offer_accepted", False)
-                game_nickname = existing.get("game_nickname")
+                # Access Row object correctly
+                offer_accepted = existing["offer_accepted"] if existing["offer_accepted"] else False
+                game_nickname = existing["game_nickname"] if existing["game_nickname"] else None
                 print(f"User updated successfully. offer_accepted: {offer_accepted}, game_nickname: {game_nickname}")
             else:
                 print(f"New user {telegram_id}, inserting...")
