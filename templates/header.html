@@ -435,8 +435,11 @@ document.addEventListener('DOMContentLoaded', function(){
     // Define onTelegramAuth BEFORE widget initialization to ensure it's available
     // Telegram auth callback - simple version as in Telegram docs
     console.log('🔧 Defining window.onTelegramAuth function...');
+    
+    // Make sure it's globally accessible
     window.onTelegramAuth = function(user) {
         console.log('🎉 === Telegram auth callback received ===', user);
+        console.log('🎉 Callback function called! User data:', JSON.stringify(user, null, 2));
         console.log('User object:', JSON.stringify(user, null, 2));
         
         if (!user || !user.id) {
@@ -546,9 +549,51 @@ document.addEventListener('DOMContentLoaded', function(){
                 const widgetButton = container.querySelector('iframe, .tgme_widget_login_button, button');
                 if (widgetButton) {
                     console.log('✅ Widget button found:', widgetButton);
+                    
+                    // Add click listener to detect if button is clicked
+                    if (widgetButton.tagName === 'IFRAME') {
+                        console.log('📋 Widget is an iframe, monitoring for messages...');
+                        
+                        // Listen for messages from iframe (Telegram widget sends messages)
+                        window.addEventListener('message', function(event) {
+                            console.log('📨 Message received from iframe:', event);
+                            console.log('📨 Origin:', event.origin);
+                            console.log('📨 Data:', event.data);
+                            
+                            // Telegram widget sends data via postMessage
+                            if (event.origin === 'https://oauth.telegram.org' && event.data) {
+                                console.log('✅ Message from Telegram OAuth:', event.data);
+                                
+                                // If it's user data, process it
+                                if (event.data.id || event.data.user) {
+                                    const userData = event.data.user || event.data;
+                                    console.log('🎉 User data received via postMessage:', userData);
+                                    if (typeof window.onTelegramAuth === 'function') {
+                                        window.onTelegramAuth(userData);
+                                    }
+                                }
+                            }
+                        });
+                    }
                 } else {
                     console.warn('⚠️ Widget button not found after load');
                 }
+                
+                // Check for errors after a longer delay
+                setTimeout(function() {
+                    const widgetError = container.querySelector('.tgme_widget_error, [class*="error"]');
+                    if (widgetError) {
+                        const errorText = widgetError.textContent || widgetError.innerText || '';
+                        console.error('❌ Widget error detected:', errorText);
+                        if (errorText.includes('domain') || errorText.includes('invalid') || errorText.includes('Domain')) {
+                            console.error('❌ DOMAIN NOT REGISTERED!');
+                            console.error('💡 Register domain via @BotFather: /setdomain');
+                            console.error('💡 Current domain:', currentDomain);
+                        }
+                    } else {
+                        console.log('✅ No widget errors detected');
+                    }
+                }, 3000);
             }, 1000);
         };
         
