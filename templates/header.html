@@ -623,42 +623,74 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // Check admin status and update UI
     function checkAdminStatus(telegramUsername) {
-        if (!telegramUsername) return;
+        console.log('🔍 checkAdminStatus called with:', telegramUsername);
         
-        fetch('/api/telegram/check-admin?username=' + encodeURIComponent(telegramUsername))
-            .then(response => response.json())
+        if (!telegramUsername) {
+            console.warn('⚠️ No telegram username provided to checkAdminStatus');
+            return;
+        }
+        
+        const url = '/api/telegram/check-admin?username=' + encodeURIComponent(telegramUsername);
+        console.log('📡 Fetching:', url);
+        
+        fetch(url)
+            .then(response => {
+                console.log('📡 Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('📡 Response data:', data);
+                
                 if (data.ok && data.is_admin) {
+                    console.log('✅ Admin access granted for:', telegramUsername);
+                    
                     // Update IS_ADMIN on all pages
                     if (typeof IS_ADMIN !== 'undefined') {
                         IS_ADMIN = true;
+                        console.log('✅ IS_ADMIN set to true');
                     }
                     if (typeof window.PULSE_TIMER_IS_ADMIN !== 'undefined') {
                         window.PULSE_TIMER_IS_ADMIN = true;
+                        console.log('✅ PULSE_TIMER_IS_ADMIN set to true');
                     }
                     
                     // Show admin panels
                     const adminPanels = document.querySelectorAll('#admin-panel');
                     adminPanels.forEach(panel => {
-                        if (panel) panel.style.display = 'block';
+                        if (panel) {
+                            panel.style.display = 'block';
+                            console.log('✅ Admin panel shown');
+                        }
                     });
                     
                     const toggleAdminBtns = document.querySelectorAll('#toggle-admin');
                     toggleAdminBtns.forEach(btn => {
-                        if (btn) btn.style.display = 'block';
+                        if (btn) {
+                            btn.style.display = 'block';
+                            console.log('✅ Admin toggle button shown');
+                        }
                     });
                     
                     // Show add event buttons
                     const addEventBtns = document.querySelectorAll('.add-event-btn');
                     addEventBtns.forEach(btn => {
-                        if (btn) btn.style.display = 'block';
+                        if (btn) {
+                            btn.style.display = 'block';
+                            console.log('✅ Add event button shown');
+                        }
                     });
                     
-                    console.log('Admin status updated for:', telegramUsername);
+                    console.log('✅ Admin status updated successfully for:', telegramUsername);
+                } else {
+                    console.warn('⚠️ User is not admin:', telegramUsername);
+                    console.warn('⚠️ Admin list:', data.admin_list);
                 }
             })
             .catch(error => {
-                console.error('Error checking admin status:', error);
+                console.error('❌ Error checking admin status:', error);
             });
     }
     

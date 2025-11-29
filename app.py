@@ -441,11 +441,21 @@ def timer_loop():
 
 def check_is_admin(telegram_username=None):
     """Check if user is admin based on Telegram username."""
+    print(f"🔍 check_is_admin called with: '{telegram_username}'")
+    print(f"🔍 ADMIN_TELEGRAM_USERNAMES: {ADMIN_TELEGRAM_USERNAMES}")
+    
     if not telegram_username:
+        print("❌ No telegram_username provided")
         return False
+    
     # Remove @ if present and convert to lowercase
     username = telegram_username.replace("@", "").strip().lower()
-    return username in ADMIN_TELEGRAM_USERNAMES
+    print(f"🔍 Normalized username: '{username}'")
+    
+    is_admin = username in ADMIN_TELEGRAM_USERNAMES
+    print(f"🔍 Is admin: {is_admin}")
+    
+    return is_admin
 
 @app.route("/")
 def index():
@@ -1844,14 +1854,25 @@ def require_admin(data):
     token = (data or {}).get("token", "")
     telegram_username = (data or {}).get("telegram_username", "")
     
+    print(f"🔐 require_admin called: token={bool(token)}, telegram_username='{telegram_username}'")
+    
     # Check token first (for backward compatibility)
     if token == ADMIN_TOKEN:
+        print("✅ Admin access granted via token")
         return True
     
     # Check Telegram username
-    if telegram_username and check_is_admin(telegram_username):
-        return True
+    if telegram_username:
+        is_admin = check_is_admin(telegram_username)
+        if is_admin:
+            print("✅ Admin access granted via Telegram username")
+            return True
+        else:
+            print(f"❌ Telegram username '{telegram_username}' is not admin")
+    else:
+        print("❌ No telegram_username provided")
     
+    print("❌ Permission denied - invalid token or not admin")
     raise PermissionError("invalid token or not admin")
 
 
@@ -1859,11 +1880,16 @@ def require_admin(data):
 def api_check_admin():
     """Check if Telegram username is admin."""
     username = request.args.get("username", "").strip()
+    print(f"📋 /api/telegram/check-admin called with username: '{username}'")
+    
     if not username:
-        return jsonify({"ok": False, "is_admin": False}), 400
+        print("❌ No username provided")
+        return jsonify({"ok": False, "is_admin": False, "error": "username required"}), 400
     
     is_admin = check_is_admin(username)
-    return jsonify({"ok": True, "is_admin": is_admin})
+    result = {"ok": True, "is_admin": is_admin, "username": username, "admin_list": ADMIN_TELEGRAM_USERNAMES}
+    print(f"📋 Returning: {result}")
+    return jsonify(result)
 
 
 @socketio.on("connect")
