@@ -1591,11 +1591,12 @@
                 lateLevels:Math.max(1,Math.min(LEVELS.length,late)),
             };
 
-            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+            // Get telegram_id for admin check
+            const telegramId = localStorage.getItem('pulse_telegram_id') || '';
             socket.emit("action",{
                 action:"config",
                 token:ADMIN_TOKEN,
-                telegram_username:telegramUsername,
+                telegram_id:telegramId,
                 cfg:{...levelConfig,breaks:breakConfig}
             });
 
@@ -1622,11 +1623,12 @@
             }
             breakConfig=arr;
 
-            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
+            // Get telegram_id for admin check
+            const telegramId = localStorage.getItem('pulse_telegram_id') || '';
             socket.emit("action",{
                 action:"config",
                 token:ADMIN_TOKEN,
-                telegram_username:telegramUsername,
+                telegram_id:telegramId,
                 cfg:{...levelConfig,breaks:breakConfig}
             });
 
