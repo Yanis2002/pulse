@@ -7,20 +7,20 @@
 ### Быстрый старт:
 
 ```bash
-./start_local.sh
+./local/start_local.sh
 ```
 
 Или вручную:
 
 ```bash
-python3 app_local.py
+python3 local/app_local.py
 ```
 
 ### Настройка туннелирования:
 
 1. **Запустите локальный сервер:**
    ```bash
-   ./start_local.sh
+   ./local/start_local.sh
    ```
 
 2. **Настройте туннель** (например, через tunnel4.com или ngrok):
@@ -42,12 +42,13 @@ python3 app_local.py
 
 ```
 poker/
-├── app.py              # Основное приложение (продакшн)
-├── app_local.py        # Локальная версия
-├── start_local.sh      # Скрипт запуска локальной версии
+├── app.py                  # Основное приложение (продакшн)
 ├── pulse_tournaments.db    # Продакшн база данных
-└── local_db/
-    └── pulse_tournaments.db # Локальная база данных
+├── local/                  # Локальная версия (не деплоится)
+│   ├── app_local.py        # Локальная версия приложения
+│   └── start_local.sh      # Скрипт запуска локальной версии
+└── local_db/               # Локальная база данных
+    └── pulse_tournaments.db
 ```
 
 ### Важно:

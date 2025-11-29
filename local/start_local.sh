@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # Start local version of the application for tunneling
+# Run this script from the project root directory
+
+cd "$(dirname "$0")/.." || exit 1
 
 echo "🚀 Starting LOCAL version of PULSE | CLUB"
 echo "=========================================="
@@ -27,5 +30,5 @@ echo "🔗 Tunnel URL: Use your tunneling service (e.g., tunnel4.com)"
 echo ""
 echo "Starting server..."
 
-python3 app_local.py
+python3 local/app_local.py
 

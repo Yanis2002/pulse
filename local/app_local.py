@@ -8,6 +8,9 @@ It will NOT be deployed to production servers.
 import os
 import sys
 
+# Add parent directory to path to import app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Prevent running in production environments
 if os.environ.get("AMVERA") == "true" or os.environ.get("GAE_ENV") or os.environ.get("K_SERVICE"):
     print("❌ ERROR: app_local.py should not be run in production!")
@@ -16,10 +19,11 @@ if os.environ.get("AMVERA") == "true" or os.environ.get("GAE_ENV") or os.environ
 
 # Set environment variables for local version
 os.environ["LOCAL_MODE"] = "true"
-os.environ["DB_DIR"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_db")
+local_db_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "local_db")
+os.environ["DB_DIR"] = local_db_dir
 os.environ["PORT"] = "8000"
 
-# Import main app
+# Import main app from parent directory
 from app import app, socketio
 
 if __name__ == "__main__":

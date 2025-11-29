@@ -1,6 +1,5 @@
 # Local development files - not for production
-app_local.py
-start_local.sh
+local/
 local_db/
 README_LOCAL.md
 
