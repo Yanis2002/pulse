@@ -1032,7 +1032,15 @@
             const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
             if (telegramUsername) {
                 try {
-                    const response = await fetch('/api/telegram/check-admin?username=' + encodeURIComponent(telegramUsername));
+                    // Check admin status using game_nickname or telegram_id
+                    const telegramId = localStorage.getItem('pulse_telegram_id') || '';
+                    let url = '/api/telegram/check-admin?';
+                    if (telegramId) {
+                        url += 'telegram_id=' + encodeURIComponent(telegramId);
+                    } else {
+                        return; // No telegram_id, can't check admin
+                    }
+                    const response = await fetch(url);
                     const data = await response.json();
                     if (data.ok && data.is_admin) {
                         IS_ADMIN = true;
