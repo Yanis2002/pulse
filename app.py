@@ -480,6 +480,241 @@ def rating():
 def contacts():
     return render_template("contacts.html")
 
+@app.route("/debug/logs")
+def debug_logs():
+    """Debug page to view logs in real-time."""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Debug Logs</title>
+        <meta charset="UTF-8">
+        <style>
+            body {
+                font-family: 'Courier New', monospace;
+                background: #0a0a0a;
+                color: #0f0;
+                padding: 20px;
+                margin: 0;
+            }
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+            h1 {
+                color: #d32f2f;
+                text-shadow: 0 0 10px #d32f2f;
+            }
+            .section {
+                margin: 20px 0;
+                padding: 15px;
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 5px;
+            }
+            .log-container {
+                background: #000;
+                padding: 15px;
+                border-radius: 5px;
+                max-height: 500px;
+                overflow-y: auto;
+                font-size: 12px;
+                line-height: 1.6;
+            }
+            .log-entry {
+                margin: 5px 0;
+                padding: 5px;
+                border-left: 3px solid #333;
+                padding-left: 10px;
+            }
+            .log-success { border-left-color: #0f0; color: #0f0; }
+            .log-error { border-left-color: #f00; color: #f00; }
+            .log-info { border-left-color: #0ff; color: #0ff; }
+            .log-warn { border-left-color: #ff0; color: #ff0; }
+            button {
+                background: #d32f2f;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                cursor: pointer;
+                border-radius: 5px;
+                margin: 5px;
+                font-size: 14px;
+            }
+            button:hover { background: #b71c1c; }
+            .instructions {
+                background: #1a1a1a;
+                padding: 15px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+                border: 1px solid #333;
+            }
+            .instructions h2 {
+                color: #0ff;
+                margin-top: 0;
+            }
+            .instructions ol {
+                color: #ccc;
+                line-height: 1.8;
+            }
+            .instructions code {
+                background: #000;
+                padding: 2px 6px;
+                border-radius: 3px;
+                color: #0f0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔍 Debug Logs Viewer</h1>
+            
+            <div class="instructions">
+                <h2>📋 Как использовать:</h2>
+                <ol>
+                    <li>Откройте консоль браузера: <code>F12</code> (или <code>Cmd+Option+I</code> на Mac)</li>
+                    <li>Перейдите на вкладку <code>Console</code></li>
+                    <li>Откройте профиль (👤) на сайте</li>
+                    <li>Смотрите логи в консоли браузера</li>
+                    <li>Логи сервера смотрите в терминале, где запущен Flask</li>
+                </ol>
+            </div>
+            
+            <div class="section">
+                <h2>📝 Логи браузера (симуляция)</h2>
+                <button onclick="simulateLogs()">Симулировать логи</button>
+                <button onclick="clearBrowserLogs()">Очистить</button>
+                <div id="browser-logs" class="log-container"></div>
+            </div>
+            
+            <div class="section">
+                <h2>🔧 Проверка функций</h2>
+                <button onclick="checkFunctions()">Проверить функции</button>
+                <button onclick="testWidgetInit()">Тест инициализации виджета</button>
+                <div id="function-check" class="log-container"></div>
+            </div>
+            
+            <div class="section">
+                <h2>💾 LocalStorage</h2>
+                <button onclick="showLocalStorage()">Показать LocalStorage</button>
+                <button onclick="clearLocalStorage()">Очистить LocalStorage</button>
+                <div id="localstorage" class="log-container"></div>
+            </div>
+        </div>
+        
+        <script>
+            function addLog(containerId, message, type = 'info') {
+                const container = document.getElementById(containerId);
+                const entry = document.createElement('div');
+                entry.className = 'log-entry log-' + type;
+                const time = new Date().toLocaleTimeString();
+                entry.textContent = `[${time}] ${message}`;
+                container.appendChild(entry);
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            function clearBrowserLogs() {
+                document.getElementById('browser-logs').innerHTML = '';
+            }
+            
+            function simulateLogs() {
+                const logs = [
+                    { msg: '🔧 Defining window.onTelegramAuth function...', type: 'info' },
+                    { msg: '👤 Profile modal opened, initializing Telegram widget...', type: 'info' },
+                    { msg: '⏰ Timeout fired, calling initTelegramWidget...', type: 'info' },
+                    { msg: '🔧 initTelegramWidget called', type: 'info' },
+                    { msg: '✅ Container found: <div id="telegram-widget-container">', type: 'success' },
+                    { msg: '✅ window.onTelegramAuth is defined', type: 'success' },
+                    { msg: '🌐 Current domain: pulse-390031593512.europe-north1.run.app isLocalhost: false', type: 'info' },
+                    { msg: '📝 Widget script attributes set: {data-telegram-login: "Pulse_Club_bot", ...}', type: 'info' },
+                    { msg: '📤 Appending widget script to container', type: 'info' },
+                    { msg: '✅ Widget script appended', type: 'success' },
+                    { msg: '✅ Telegram widget script loaded successfully', type: 'success' },
+                ];
+                
+                logs.forEach((log, index) => {
+                    setTimeout(() => {
+                        addLog('browser-logs', log.msg, log.type);
+                    }, index * 200);
+                });
+            }
+            
+            function checkFunctions() {
+                const container = document.getElementById('function-check');
+                container.innerHTML = '';
+                
+                addLog('function-check', 'Проверка функций...', 'info');
+                
+                // Check onTelegramAuth
+                if (typeof window.onTelegramAuth === 'function') {
+                    addLog('function-check', '✅ window.onTelegramAuth is defined', 'success');
+                } else {
+                    addLog('function-check', '❌ window.onTelegramAuth is NOT defined', 'error');
+                }
+                
+                // Check initTelegramWidget
+                if (typeof initTelegramWidget === 'function') {
+                    addLog('function-check', '✅ initTelegramWidget is defined', 'success');
+                } else {
+                    addLog('function-check', '❌ initTelegramWidget is NOT defined', 'error');
+                }
+                
+                // Check container
+                const widgetContainer = document.getElementById('telegram-widget-container');
+                if (widgetContainer) {
+                    addLog('function-check', '✅ telegram-widget-container found', 'success');
+                } else {
+                    addLog('function-check', '❌ telegram-widget-container NOT found', 'error');
+                }
+            }
+            
+            function testWidgetInit() {
+                const container = document.getElementById('function-check');
+                addLog('function-check', '🧪 Testing widget initialization...', 'info');
+                
+                if (typeof initTelegramWidget === 'function') {
+                    try {
+                        initTelegramWidget();
+                        addLog('function-check', '✅ initTelegramWidget called successfully', 'success');
+                    } catch (error) {
+                        addLog('function-check', '❌ Error: ' + error.message, 'error');
+                    }
+                } else {
+                    addLog('function-check', '❌ initTelegramWidget function not found', 'error');
+                }
+            }
+            
+            function showLocalStorage() {
+                const container = document.getElementById('localstorage');
+                container.innerHTML = '';
+                
+                const telegramUsername = localStorage.getItem('pulse_telegram_username');
+                const telegramId = localStorage.getItem('pulse_telegram_id');
+                const playerName = localStorage.getItem('pulse_player_name');
+                
+                addLog('localstorage', '=== LocalStorage Contents ===', 'info');
+                addLog('localstorage', `pulse_telegram_username: ${telegramUsername || 'NOT SET'}`, telegramUsername ? 'success' : 'error');
+                addLog('localstorage', `pulse_telegram_id: ${telegramId || 'NOT SET'}`, telegramId ? 'success' : 'error');
+                addLog('localstorage', `pulse_player_name: ${playerName || 'NOT SET'}`, playerName ? 'success' : 'error');
+            }
+            
+            function clearLocalStorage() {
+                if (confirm('Очистить весь LocalStorage? Это удалит все сохраненные данные.')) {
+                    localStorage.clear();
+                    addLog('localstorage', '✅ LocalStorage cleared', 'success');
+                }
+            }
+            
+            // Auto-check on load
+            window.onload = function() {
+                checkFunctions();
+                showLocalStorage();
+            };
+        </script>
+    </body>
+    </html>
+    """
+    
 @app.route("/debug/admin")
 def debug_admin():
     """Debug page to check admin status."""
