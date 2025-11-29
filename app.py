@@ -2337,8 +2337,16 @@ def api_telegram_webhook():
                             "text": welcome_text,
                             "reply_markup": keyboard,
                             "parse_mode": "HTML"
-                        }, timeout=5)
-                        print(f"Welcome message sent: {response.json()}")
+                        }, timeout=10)
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            if result.get("ok"):
+                                print(f"✅ Welcome message sent successfully to {telegram_id}")
+                            else:
+                                print(f"⚠️ Failed to send message: {result}")
+                        else:
+                            print(f"❌ Error sending message: HTTP {response.status_code} - {response.text}")
                     except Exception as e:
                         print(f"Error sending welcome message: {e}")
         
