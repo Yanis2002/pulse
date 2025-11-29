@@ -1913,6 +1913,33 @@ def api_set_nickname():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/api/telegram/delete-user", methods=["POST"])
+def api_delete_user():
+    """Delete user data if offer is declined (admin only or self)."""
+    data = request.get_json() or {}
+    telegram_id = data.get("telegram_id", "").strip()
+    
+    print(f"=== Delete User ===")
+    print(f"telegram_id: {telegram_id}")
+    
+    if not telegram_id:
+        return jsonify({"ok": False, "error": "telegram_id required"}), 400
+    
+    try:
+        with get_db() as db:
+            # Delete user from database
+            db.execute("DELETE FROM telegram_users WHERE telegram_id = ?", (telegram_id,))
+            db.commit()
+            print(f"✅ User {telegram_id} deleted from database")
+        
+        return jsonify({"ok": True, "message": "User deleted successfully"})
+    except Exception as e:
+        print(f"❌ ERROR deleting user: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/api/telegram/user-status", methods=["GET"])
 def api_get_user_status():
     """Get user status (offer accepted, game_nickname)."""

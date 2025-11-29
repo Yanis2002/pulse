@@ -887,10 +887,14 @@ document.addEventListener('DOMContentLoaded', function(){
                     checkAdminStatus(telegramUsername);
                 }
                 
-                // After registration, check if nickname is needed
-                if (!data.game_nickname) {
+                // After registration, check if offer needs to be accepted (only once)
+                if (!data.offer_accepted) {
+                    console.log('📋 Offer not accepted, showing offer modal');
+                    // Show offer modal - user must accept or data will be deleted
+                    showOfferModalAfterAuth(user);
+                } else if (!data.game_nickname) {
                     console.log('No nickname, showing nickname modal');
-                    // No nickname - show nickname modal
+                    // Offer accepted but no nickname - show nickname modal
                     const nicknameModal = document.getElementById('nickname-modal');
                     if (nicknameModal) {
                         nicknameModal.style.display = 'block';
@@ -916,6 +920,154 @@ document.addEventListener('DOMContentLoaded', function(){
         .catch(error => {
             console.error('❌ Error registering user:', error);
             alert('Ошибка при регистрации: ' + error.message + '\n\nПроверьте консоль браузера (F12) для подробностей.');
+            });
+    }
+    
+    // Show offer modal after authentication - if not accepted, delete user data
+    function showOfferModalAfterAuth(user) {
+        const offerModal = document.getElementById('offer-modal');
+        if (!offerModal) {
+            console.error('❌ Offer modal not found');
+            return;
+        }
+        
+        // Show offer modal
+        offerModal.style.display = 'block';
+        offerModal.classList.add('active');
+        
+        // Store user data temporarily
+        window._pendingTelegramUser = user;
+        
+        // Handle offer acceptance
+        const offerAcceptBtn = document.getElementById('offer-accept');
+        const offerDeclineBtn = document.getElementById('offer-decline');
+        
+        // Remove old listeners by cloning
+        if (offerAcceptBtn) {
+            const newAcceptBtn = offerAcceptBtn.cloneNode(true);
+            offerAcceptBtn.parentNode.replaceChild(newAcceptBtn, offerAcceptBtn);
+            
+            newAcceptBtn.addEventListener('click', function() {
+                console.log('✅ Offer accepted');
+                acceptOfferAfterAuth(user);
+            });
+        }
+        
+        if (offerDeclineBtn) {
+            const newDeclineBtn = offerDeclineBtn.cloneNode(true);
+            offerDeclineBtn.parentNode.replaceChild(newDeclineBtn, offerDeclineBtn);
+            
+            newDeclineBtn.addEventListener('click', function() {
+                console.log('❌ Offer declined, deleting user data');
+                declineOfferAndDeleteData(user);
+            });
+        }
+    }
+    
+    // Accept offer after authentication
+    function acceptOfferAfterAuth(user) {
+        const telegramId = user.id.toString();
+        
+        fetch('/api/telegram/accept-offer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                telegram_id: telegramId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                console.log('✅ Offer accepted on server');
+                // Close offer modal
+                const offerModal = document.getElementById('offer-modal');
+                if (offerModal) {
+                    offerModal.style.display = 'none';
+                    offerModal.classList.remove('active');
+                }
+                
+                // Check if nickname is needed
+                fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
+                    .then(response => response.json())
+                    .then(statusData => {
+                        if (statusData.ok && !statusData.game_nickname) {
+                            // Show nickname modal
+                            const nicknameModal = document.getElementById('nickname-modal');
+                            if (nicknameModal) {
+                                nicknameModal.style.display = 'block';
+                                nicknameModal.classList.add('active');
+                            }
+                        } else {
+                            // All set
+                            loadProfileData();
+                            if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
+                                setTimeout(() => window.location.reload(), 1000);
+                            }
+                        }
+                    });
+            } else {
+                alert('Ошибка при принятии оферты: ' + (data.error || 'неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error accepting offer:', error);
+            alert('Ошибка при принятии оферты. Пожалуйста, попробуйте еще раз.');
+        });
+    }
+    
+    // Decline offer and delete user data
+    function declineOfferAndDeleteData(user) {
+        const telegramId = user.id.toString();
+        
+        // Delete user from database
+        fetch('/api/telegram/delete-user', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                telegram_id: telegramId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                console.log('✅ User data deleted from database');
+                
+                // Clear localStorage
+                localStorage.removeItem('pulse_player_name');
+                localStorage.removeItem('pulse_telegram_id');
+                localStorage.removeItem('pulse_telegram_username');
+                
+                // Close modals
+                const offerModal = document.getElementById('offer-modal');
+                const profileModal = document.getElementById('profile-modal');
+                const profileBackdrop = document.getElementById('profile-backdrop');
+                
+                if (offerModal) {
+                    offerModal.style.display = 'none';
+                    offerModal.classList.remove('active');
+                }
+                if (profileModal) {
+                    profileModal.classList.remove('active');
+                }
+                if (profileBackdrop) {
+                    profileBackdrop.classList.remove('active');
+                }
+                
+                // Update profile display
+                loadProfileData();
+                
+                alert('Данные удалены. Для записи на события необходимо принять публичную оферту.');
+            } else {
+                alert('Ошибка при удалении данных: ' + (data.error || 'неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error deleting user:', error);
+            alert('Ошибка при удалении данных. Пожалуйста, попробуйте еще раз.');
         });
     }
     
