@@ -1834,26 +1834,45 @@ def api_register_telegram_user():
 
 @app.route("/api/telegram/accept-offer", methods=["POST"])
 def api_accept_offer():
-    """Accept public offer."""
+    """Accept public offer - saves to database so it's accepted only once."""
     data = request.get_json() or {}
     telegram_id = data.get("telegram_id", "").strip()
+    
+    print(f"=== Accept Offer ===")
+    print(f"telegram_id: {telegram_id}")
     
     if not telegram_id:
         return jsonify({"ok": False, "error": "telegram_id required"}), 400
     
     try:
         with get_db() as db:
-            db.execute("""
+            # Check if user exists first
+            user = db.execute("SELECT telegram_id FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if not user:
+                print(f"❌ User {telegram_id} not found in database")
+                return jsonify({"ok": False, "error": "user not found"}), 404
+            
+            # Check if offer already accepted
+            existing = db.execute("SELECT offer_accepted FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if existing and existing["offer_accepted"]:
+                print(f"✅ Offer already accepted for user {telegram_id}")
+                return jsonify({"ok": True, "message": "Offer already accepted", "already_accepted": True})
+            
+            # Update offer_accepted in database
+            cursor = db.execute("""
                 UPDATE telegram_users 
                 SET offer_accepted = 1, offer_accepted_at = CURRENT_TIMESTAMP, last_active = CURRENT_TIMESTAMP
                 WHERE telegram_id = ?
             """, (telegram_id,))
             
-            if db.rowcount == 0:
-                return jsonify({"ok": False, "error": "user not found"}), 404
+            db.commit()
+            print(f"✅ Offer accepted and saved to database for user {telegram_id}")
         
         return jsonify({"ok": True, "message": "Offer accepted successfully"})
     except Exception as e:
+        print(f"❌ ERROR accepting offer: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
@@ -1861,6 +1880,9 @@ def api_accept_offer():
 def api_get_user_status():
     """Get user status (offer accepted, game_nickname)."""
     telegram_id = request.args.get("telegram_id", "").strip()
+    
+    print(f"=== Get User Status ===")
+    print(f"telegram_id: {telegram_id}")
     
     if not telegram_id:
         return jsonify({"ok": False, "error": "telegram_id required"}), 400
@@ -1874,17 +1896,24 @@ def api_get_user_status():
             """, (telegram_id,)).fetchone()
             
             if not user:
+                print(f"❌ User {telegram_id} not found")
                 return jsonify({"ok": False, "error": "user not found"}), 404
             
-            return jsonify({
+            # Access Row object correctly
+            result = {
                 "ok": True,
-                "offer_accepted": bool(user.get("offer_accepted")),
-                "game_nickname": user.get("game_nickname"),
-                "first_name": user.get("first_name"),
-                "last_name": user.get("last_name"),
-                "username": user.get("username")
-            })
+                "offer_accepted": bool(user["offer_accepted"]) if user["offer_accepted"] else False,
+                "game_nickname": user["game_nickname"] if user["game_nickname"] else None,
+                "first_name": user["first_name"] if user["first_name"] else "",
+                "last_name": user["last_name"] if user["last_name"] else None,
+                "username": user["username"] if user["username"] else None
+            }
+            print(f"✅ User status retrieved: {result}")
+            return jsonify(result)
     except Exception as e:
+        print(f"❌ ERROR getting user status: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
