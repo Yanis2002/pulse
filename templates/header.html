@@ -518,7 +518,7 @@ document.addEventListener('DOMContentLoaded', function(){
         .then(data => {
             if (data.ok) {
                 console.log('User registered successfully');
-                // Update profile display
+                // Update profile display (reload from server to get latest data)
                 loadProfileData();
                 
                 // Check if offer needs to be accepted
@@ -567,7 +567,26 @@ document.addEventListener('DOMContentLoaded', function(){
             return;
         }
         
-        // Process authentication
+        // Immediately save to localStorage for quick display
+        const playerName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+        const telegramUsername = user.username || '';
+        const telegramId = user.id.toString();
+        
+        localStorage.setItem('pulse_player_name', playerName);
+        localStorage.setItem('pulse_telegram_id', telegramId);
+        if (telegramUsername) {
+            localStorage.setItem('pulse_telegram_username', telegramUsername);
+        }
+        
+        // Update profile display immediately
+        const profileNameEl = document.getElementById('profile-name');
+        const profileTelegramEl = document.getElementById('profile-telegram');
+        if (profileNameEl) profileNameEl.textContent = playerName;
+        if (profileTelegramEl) {
+            profileTelegramEl.textContent = telegramUsername ? '@' + telegramUsername : 'ID: ' + telegramId;
+        }
+        
+        // Process authentication (register on server)
         processTelegramAuth(user);
     };
     
