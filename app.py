@@ -1823,15 +1823,26 @@ def api_register_telegram_user():
 
 @app.route("/api/telegram/accept-offer", methods=["POST"])
 def api_accept_offer():
-    """Accept public offer."""
+    """Accept public offer - saves to database so it's accepted only once."""
     data = request.get_json() or {}
     telegram_id = data.get("telegram_id", "").strip()
+    
+    print(f"=== Accept Offer ===")
+    print(f"telegram_id: {telegram_id}")
     
     if not telegram_id:
         return jsonify({"ok": False, "error": "telegram_id required"}), 400
     
     try:
         with get_db() as db:
+            # Check if offer already accepted
+            existing = db.execute("SELECT offer_accepted FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if existing:
+                if existing["offer_accepted"]:
+                    print(f"✅ Offer already accepted for user {telegram_id}")
+                    return jsonify({"ok": True, "message": "Offer already accepted", "already_accepted": True})
+            
+            # Update offer_accepted in database
             db.execute("""
                 UPDATE telegram_users 
                 SET offer_accepted = 1, offer_accepted_at = CURRENT_TIMESTAMP, last_active = CURRENT_TIMESTAMP
@@ -1839,9 +1850,65 @@ def api_accept_offer():
             """, (telegram_id,))
             
             if db.rowcount == 0:
+                print(f"❌ User {telegram_id} not found in database")
                 return jsonify({"ok": False, "error": "user not found"}), 404
+            
+            db.commit()
+            print(f"✅ Offer accepted and saved to database for user {telegram_id}")
         
         return jsonify({"ok": True, "message": "Offer accepted successfully"})
+    except Exception as e:
+        print(f"❌ ERROR accepting offer: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/telegram/set-nickname", methods=["POST"])
+def api_set_nickname():
+    """Set game nickname - user chooses it themselves, not from Telegram."""
+    data = request.get_json() or {}
+    telegram_id = data.get("telegram_id", "").strip()
+    game_nickname = data.get("game_nickname", "").strip()
+    
+    print(f"=== Set Game Nickname ===")
+    print(f"telegram_id: {telegram_id}")
+    print(f"game_nickname: {game_nickname}")
+    
+    if not telegram_id:
+        return jsonify({"ok": False, "error": "telegram_id required"}), 400
+    
+    if not game_nickname:
+        return jsonify({"ok": False, "error": "game_nickname required"}), 400
+    
+    # Validate game_nickname: 3-20 chars, letters (lat/cyrillic), numbers, underscore
+    import re
+    if not re.match(r'^[a-zA-Zа-яА-ЯёЁ0-9_]{3,20}$', game_nickname):
+        return jsonify({"ok": False, "error": "game_nickname должен содержать 3-20 символов: буквы (лат/кирилл), цифры и _"}), 400
+    
+    try:
+        with get_db() as db:
+            # Check if user exists
+            user = db.execute("SELECT telegram_id FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if not user:
+                return jsonify({"ok": False, "error": "user not found"}), 404
+            
+            # Update game_nickname (user chooses it themselves)
+            db.execute("""
+                UPDATE telegram_users 
+                SET game_nickname = ?, last_active = CURRENT_TIMESTAMP
+                WHERE telegram_id = ?
+            """, (game_nickname, telegram_id))
+            
+            db.commit()
+            print(f"✅ Game nickname '{game_nickname}' saved to database for user {telegram_id}")
+        
+        return jsonify({"ok": True, "message": "Game nickname set successfully"})
+    except Exception as e:
+        print(f"❌ ERROR setting nickname: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 

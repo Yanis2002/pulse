@@ -498,25 +498,29 @@ document.addEventListener('DOMContentLoaded', function(){
         // Check if offer is accepted before showing widget
         const telegramId = localStorage.getItem('pulse_telegram_id');
         if (telegramId) {
-            // Check offer status
+            // Check offer status from server
             fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('📋 User status from server:', data);
                     if (data.ok && data.offer_accepted) {
-                        // Offer accepted, show widget
-                        showTelegramWidget(container);
+                        // Offer already accepted, show widget enabled
+                        console.log('✅ Offer already accepted, showing enabled widget');
+                        showTelegramWidget(container, false); // false = enabled
                     } else {
-                        // Offer not accepted, show offer prompt
+                        // Offer not accepted, show disabled widget with offer checkbox
+                        console.log('📋 Offer not accepted, showing disabled widget with offer checkbox');
                         showOfferPrompt(container);
                     }
                 })
                 .catch(error => {
                     console.error('❌ Error checking offer status:', error);
-                    // On error, show offer prompt
+                    // On error, show offer prompt (assume not accepted)
                     showOfferPrompt(container);
                 });
         } else {
             // No telegram_id, show offer prompt
+            console.log('📋 No telegram_id, showing offer prompt');
             showOfferPrompt(container);
         }
     }
@@ -1316,13 +1320,13 @@ document.addEventListener('DOMContentLoaded', function(){
             return;
         }
         
+        // Save game_nickname to database (user chooses it themselves, not from Telegram)
         $.ajax({
-            url: '/api/telegram/register',
+            url: '/api/telegram/set-nickname',
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
                 telegram_id: telegramId,
-                first_name: localStorage.getItem('pulse_player_name') || 'User',
                 game_nickname: gameNickname
             })
         })
