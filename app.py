@@ -2288,16 +2288,6 @@ def api_telegram_webhook():
                             "После этого вы сможете записываться на турниры и получать уведомления о подтверждении регистрации!"
                         )
                         
-                        # Create inline keyboard with Web App button
-                        keyboard = {
-                            "inline_keyboard": [[
-                                {
-                                    "text": "🌐 Открыть сайт",
-                                    "web_app": {"url": base_url}
-                                }
-                            ]]
-                        }
-                        
                         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
                         
                         # Create inline keyboard with Web App button for auto-authorization
