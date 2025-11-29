@@ -1308,7 +1308,12 @@
             const telegramId = localStorage.getItem('pulse_telegram_id');
             
             if (!telegramId) {
-                alert('Для регистрации на событие необходимо пройти регистрацию через Telegram.');
+                alert('🔐 Для записи на события необходимо авторизоваться через Telegram.\n\nПожалуйста, откройте профиль (👤) и войдите через Telegram.');
+                // Open profile modal
+                const profileToggle = document.getElementById('profile-toggle');
+                if (profileToggle) {
+                    profileToggle.click();
+                }
                 return;
             }
             
@@ -1324,9 +1329,10 @@
                 }
                 
                 if (!data.offer_accepted) {
-                    // Show offer modal
+                    // Show offer modal with message
                     pendingEventId = eventId;
-                    $('#offer-modal').addClass('active');
+                    alert('🔐 Для записи на события необходимо принять публичную оферту.');
+                    $('#offer-modal').addClass('active').show();
                     return;
                 }
                 

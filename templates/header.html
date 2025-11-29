@@ -641,19 +641,23 @@ document.addEventListener('DOMContentLoaded', function(){
         // Show widget first (but it will be disabled)
         showTelegramWidget(container, true); // true = disabled
         
-        // Add offer checkbox below widget
+        // Add offer checkbox below widget (hidden by default)
         const offerSection = document.createElement('div');
         offerSection.id = 'offer-checkbox-section';
-        offerSection.style.cssText = 'text-align: center; padding: 2vh 0; color: var(--text); font-size: 1.4vh; line-height: 1.8;';
+        offerSection.style.cssText = 'text-align: center; padding: 2vh 0; color: var(--text); font-size: 1.4vh; line-height: 1.8; display: none;';
         offerSection.innerHTML = `
-            <p style="margin-bottom: 1.5vh; color: var(--text-muted);">
-                Для входа через Telegram необходимо ознакомиться с публичной офертой
-            </p>
             <label style="display: flex; align-items: center; justify-content: center; gap: 1vw; cursor: pointer; pointer-events: none; opacity: 0.5;" id="offer-label">
                 <input type="checkbox" id="offer-checkbox" disabled style="width: 1.5vh; height: 1.5vh; cursor: not-allowed;">
                 <span>Я ознакомился с <a href="https://docs.google.com/document/d/1KgkvSh-Vtx4-EyCcaetlIUYkuATmTqS-/preview" target="_blank" id="offer-link" style="color: #ff4b5c; text-decoration: underline; cursor: pointer;">публичной офертой</a> и принимаю её условия</span>
             </label>
         `;
+        
+        // Show offer section when widget is clicked while disabled
+        const showOfferOnClick = function() {
+            if (offerSection.style.display === 'none') {
+                offerSection.style.display = 'block';
+            }
+        };
         
         container.appendChild(offerSection);
         
@@ -914,7 +918,7 @@ document.addEventListener('DOMContentLoaded', function(){
         container.appendChild(script);
         console.log('✅ Widget script appended');
         
-        // If disabled, add overlay to block interactions
+        // If disabled, add overlay to block interactions and show message on click
         if (disabled) {
             setTimeout(function() {
                 const widgetIframe = container.querySelector('iframe[src*="oauth.telegram.org"]');
@@ -923,6 +927,25 @@ document.addEventListener('DOMContentLoaded', function(){
                     widgetIframe.style.opacity = '0.5';
                     widgetIframe.style.filter = 'grayscale(100%)';
                     console.log('🔒 Widget disabled (waiting for offer acceptance)');
+                    
+                    // Add click handler to show message
+                    const overlay = document.createElement('div');
+                    overlay.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor: pointer; z-index: 10;';
+                    overlay.addEventListener('click', function() {
+                        alert('🔐 Для записи на события необходимо авторизоваться через Telegram.\n\nДля входа через Telegram необходимо принять публичную оферту.\n\nПожалуйста, ознакомьтесь с офертой и поставьте галочку ниже.');
+                        // Show offer section if hidden
+                        const offerSection = document.getElementById('offer-checkbox-section');
+                        if (offerSection) {
+                            offerSection.style.display = 'block';
+                        }
+                    });
+                    
+                    // Make container relative for absolute positioning
+                    if (container.style.position !== 'relative' && container.style.position !== 'absolute') {
+                        container.style.position = 'relative';
+                    }
+                    
+                    container.appendChild(overlay);
                 }
             }, 2000);
         }
@@ -1139,12 +1162,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 </div>
             </div>
             <div class="profile-actions">
-                <div style="margin-bottom: 1.5vh; padding: 1.5vh; background: rgba(0, 238, 255, 0.05); border-radius: 12px; border: 1px solid rgba(0, 238, 255, 0.2);">
-                    <div style="font-size: 1.4vh; color: var(--text-muted); margin-bottom: 1vh; text-align: center;">
-                        🔐 Для записи на события необходимо авторизоваться через Telegram
-                    </div>
-                    <div id="telegram-widget-container"></div>
-                </div>
+                <div id="telegram-widget-container"></div>
             </div>
         </div>
     </div>
