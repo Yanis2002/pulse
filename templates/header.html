@@ -253,7 +253,7 @@ function initTelegramWebAppAuth() {
                         nicknameModal.style.display = 'block';
                         nicknameModal.classList.add('active');
                     }
-                } else {
+                } else if (!data.ok || !data.offer_accepted) {
                     // Offer not accepted - show offer modal
                     console.log('📋 Offer not accepted, showing offer modal');
                     const offerModal = document.getElementById('offer-modal');
@@ -261,6 +261,9 @@ function initTelegramWebAppAuth() {
                         offerModal.style.display = 'block';
                         offerModal.classList.add('active');
                     }
+                } else {
+                    // User status check failed or user not found - don't show modals
+                    console.log('⚠️ User status check failed or user not found, not showing modals');
                 }
             })
             .catch(error => {
@@ -1131,10 +1134,12 @@ document.addEventListener('DOMContentLoaded', function(){
             if (data.ok && data.offer_accepted && data.game_nickname) {
                 // User already fully registered - don't show modals
                 console.log('✅ User already fully registered (offer accepted + nickname set), skipping modals');
-                alert('✅ Вы уже зарегистрированы! Ваши данные сохранены.');
+                // Don't show alert - just silently update profile
                 
                 // Update profile display
-                loadProfileData();
+                if (typeof loadProfileData === 'function') {
+                    loadProfileData();
+                }
                 
                 // Check admin status
                 if (telegramId && typeof checkAdminStatus === 'function') {
@@ -1146,7 +1151,7 @@ document.addEventListener('DOMContentLoaded', function(){
             if (data.ok && data.offer_accepted && !data.game_nickname) {
                 // Offer accepted but no nickname - show nickname modal
                 console.log('📋 Offer accepted but no nickname, showing nickname modal');
-                alert('✅ Оферта принята! Теперь укажите игровой никнейм.');
+                // Don't show alert - just show nickname modal
                 
                 // Show nickname modal - user must set nickname
                 const nicknameModal = document.getElementById('nickname-modal');
