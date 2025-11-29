@@ -1154,13 +1154,23 @@ document.addEventListener('DOMContentLoaded', function(){
                     console.log('✅ Admin access granted for telegram_id:', telegramId);
                     
                     // Update IS_ADMIN on all pages
-                    if (typeof IS_ADMIN !== 'undefined') {
-                        IS_ADMIN = true;
-                        console.log('✅ IS_ADMIN set to true');
-                    }
+                    // Use window.PULSE_TIMER_IS_ADMIN instead of trying to modify const
                     if (typeof window.PULSE_TIMER_IS_ADMIN !== 'undefined') {
                         window.PULSE_TIMER_IS_ADMIN = true;
                         console.log('✅ PULSE_TIMER_IS_ADMIN set to true');
+                    }
+                    // Also update IS_ADMIN if it's a variable (not const)
+                    try {
+                        if (typeof IS_ADMIN !== 'undefined' && typeof IS_ADMIN === 'boolean') {
+                            // Try to update via window object if available
+                            if (typeof window !== 'undefined') {
+                                window.IS_ADMIN = true;
+                                console.log('✅ window.IS_ADMIN set to true');
+                            }
+                        }
+                    } catch (e) {
+                        // IS_ADMIN is const, can't modify - that's OK, use PULSE_TIMER_IS_ADMIN instead
+                        console.log('ℹ️ IS_ADMIN is const, using PULSE_TIMER_IS_ADMIN instead');
                     }
                     
                     // Show admin panels

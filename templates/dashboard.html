@@ -909,7 +909,6 @@
     <div class="main-content" id="main-content">
         <div class="main-tabs">
             <button class="main-tab-btn active" data-tab="schedule">Расписание</button>
-            <button class="main-tab-btn" data-tab="auth">Вход / Регистрация</button>
         </div>
 
         <div class="tab-panel active" id="tab-schedule">
@@ -926,38 +925,6 @@
         </div>
         </div>
 
-        <div class="tab-panel" id="tab-auth">
-            <div class="auth-cards">
-                <div class="auth-card">
-                    <div class="auth-title">Вход</div>
-                    <div class="auth-field">
-                        <label>Email / Telegram</label>
-                        <input type="text" id="login-username" placeholder="@nickname или email">
-                    </div>
-                    <div class="auth-field">
-                        <label>Пароль</label>
-                        <input type="password" id="login-password" placeholder="••••••••">
-                    </div>
-                    <button class="auth-btn" id="login-btn">Войти</button>
-                </div>
-                <div class="auth-card">
-                    <div class="auth-title">Регистрация</div>
-                    <div class="auth-field">
-                        <label>Имя и фамилия</label>
-                        <input type="text" id="reg-name" placeholder="Имя">
-                    </div>
-                    <div class="auth-field">
-                        <label>Telegram</label>
-                        <input type="text" id="reg-telegram" placeholder="@nickname">
-                    </div>
-                    <div class="auth-field">
-                        <label>Email</label>
-                        <input type="email" id="reg-email" placeholder="you@example.com">
-                    </div>
-                    <button class="auth-btn auth-btn-primary" id="register-btn">Зарегистрироваться</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Event Modal -->
@@ -1572,13 +1539,7 @@
         }
 
         // Tabs
-        $('.main-tab-btn').on('click', function(){
-            const tab = $(this).data('tab');
-            $('.main-tab-btn').removeClass('active');
-            $(this).addClass('active');
-            $('.tab-panel').removeClass('active');
-            $(`#tab-${tab}`).addClass('active');
-        });
+        // Tab switching removed - only schedule tab remains
 
         $('#prev-week').on('click', () => {
             const today = new Date();
@@ -1745,27 +1706,6 @@
             loadWeekEvents();
         });
 
-        // Auth buttons (placeholder logic)
-        $('#login-btn').on('click', function(){
-            const username = $('#login-username').val().trim();
-            if (!username) {
-                alert('Введите ваш Telegram или email');
-                return;
-            }
-            alert('Временный вход выполнен: ' + username);
-        });
-
-        $('#register-btn').on('click', function(){
-            const name = $('#reg-name').val().trim();
-            const tg = $('#reg-telegram').val().trim();
-            if (!name || !tg) {
-                alert('Введите имя и telegram');
-                return;
-            }
-            localStorage.setItem('pulse_player_name', name);
-            localStorage.setItem('pulse_telegram_id', tg.replace('@',''));
-            alert('Данные сохранены. Теперь можно записываться на события.');
-        });
 
         // Initial load
         loadWeekEvents();
