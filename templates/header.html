@@ -575,8 +575,10 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     
     // Telegram auth callback - simple version as in Telegram docs
+    // Make sure this is defined before widget loads
     window.onTelegramAuth = function(user) {
         console.log('=== Telegram auth callback received ===', user);
+        console.log('User object:', JSON.stringify(user, null, 2));
         
         if (!user || !user.id) {
             console.error('Invalid user data received from Telegram');
