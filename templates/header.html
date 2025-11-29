@@ -179,7 +179,78 @@
 </style>
 <audio id="music-player" loop src="{{ url_for('static', filename='processed_audio.mp3') }}"></audio>
 <script>
+// Auto-authorize if opened via Telegram Web App
+function initTelegramWebAppAuth() {
+    // Check if Telegram Web App is available
+    if (window.Telegram && window.Telegram.WebApp) {
+        const tg = window.Telegram.WebApp;
+        console.log('📱 Telegram Web App detected');
+        
+        // Initialize Web App
+        tg.ready();
+        tg.expand();
+        
+        // Get user data from Telegram Web App
+        const initData = tg.initData || '';
+        const user = tg.initDataUnsafe?.user;
+        
+        if (user) {
+            console.log('✅ User data from Telegram Web App:', user);
+            
+            const telegramId = user.id.toString();
+            const firstName = user.first_name || '';
+            const lastName = user.last_name || '';
+            const username = user.username || '';
+            
+            // Save to localStorage
+            localStorage.setItem('pulse_telegram_id', telegramId);
+            localStorage.setItem('pulse_player_name', firstName + (lastName ? ' ' + lastName : ''));
+            if (username) {
+                localStorage.setItem('pulse_telegram_username', username);
+            }
+            
+            // Register user in database
+            const registrationData = {
+                telegram_id: telegramId,
+                first_name: firstName,
+                last_name: lastName || '',
+                username: username,
+                language_code: user.language_code || 'ru',
+                is_bot: false,
+                registration_source: 'telegram_webapp'
+            };
+            
+            console.log('📤 Auto-registering user from Telegram Web App:', registrationData);
+            
+            fetch('/api/telegram/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(registrationData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('✅ User auto-registered from Telegram Web App:', data);
+                // Reload profile data to update UI
+                if (typeof loadProfileData === 'function') {
+                    loadProfileData();
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error auto-registering user from Telegram Web App:', error);
+            });
+        } else {
+            console.log('⚠️ No user data in Telegram Web App');
+        }
+    } else {
+        console.log('📱 Telegram Web App not available (opened in regular browser)');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function(){
+    // Initialize Telegram Web App auth first
+    initTelegramWebAppAuth();
     const audio = document.getElementById('music-player');
     const toggle = document.getElementById('music-toggle');
     if(!audio || !toggle) return;
@@ -382,12 +453,13 @@ document.addEventListener('DOMContentLoaded', function(){
                             checkAdminStatus(telegramId);
                         }
                         
-                        // Update display
+                        // Update display - show game_nickname instead of first_name
                         if (profileNameEl) {
-                            profileNameEl.textContent = fullName || 'Не зарегистрирован';
+                            const displayName = data.game_nickname || 'Не зарегистрирован';
+                            profileNameEl.textContent = displayName;
                         }
-                        // Show edit button if user is registered
-                        if (profileEditBtn && fullName && fullName !== 'Не зарегистрирован') {
+                        // Show edit button if user has game_nickname
+                        if (profileEditBtn && data.game_nickname && data.game_nickname !== 'Не зарегистрирован') {
                             profileEditBtn.style.display = 'block';
                         }
                         if (profileTelegramEl) {

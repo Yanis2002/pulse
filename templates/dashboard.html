@@ -1027,20 +1027,12 @@
         let IS_ADMIN = false;
         const ADMIN_TOKEN = "{{ admin_token }}";
         
-        // Update admin status based on Telegram username
+        // Update admin status based on Telegram ID
         (async function() {
-            const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
-            if (telegramUsername) {
+            const telegramId = localStorage.getItem('pulse_telegram_id') || '';
+            if (telegramId) {
                 try {
-                    // Check admin status using game_nickname or telegram_id
-                    const telegramId = localStorage.getItem('pulse_telegram_id') || '';
-                    let url = '/api/telegram/check-admin?';
-                    if (telegramId) {
-                        url += 'telegram_id=' + encodeURIComponent(telegramId);
-                    } else {
-                        return; // No telegram_id, can't check admin
-                    }
-                    const response = await fetch(url);
+                    const response = await fetch('/api/telegram/check-admin?telegram_id=' + encodeURIComponent(telegramId));
                     const data = await response.json();
                     if (data.ok && data.is_admin) {
                         IS_ADMIN = true;
@@ -1316,12 +1308,7 @@
             const telegramId = localStorage.getItem('pulse_telegram_id');
             
             if (!telegramId) {
-                alert('🔐 Для записи на события необходимо авторизоваться через Telegram.\n\nПожалуйста, откройте профиль (👤) и войдите через Telegram.');
-                // Open profile modal
-                const profileToggle = document.getElementById('profile-toggle');
-                if (profileToggle) {
-                    profileToggle.click();
-                }
+                alert('Для регистрации на событие необходимо пройти регистрацию через Telegram.');
                 return;
             }
             
@@ -1337,10 +1324,9 @@
                 }
                 
                 if (!data.offer_accepted) {
-                    // Show offer modal with message
+                    // Show offer modal
                     pendingEventId = eventId;
-                    alert('🔐 Для записи на события необходимо принять публичную оферту.');
-                    $('#offer-modal').addClass('active').show();
+                    $('#offer-modal').addClass('active');
                     return;
                 }
                 
