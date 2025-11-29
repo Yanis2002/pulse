@@ -1287,19 +1287,30 @@ document.addEventListener('DOMContentLoaded', function(){
         }
         
         $.ajax({
-            url: '/api/telegram/register',
+            url: '/api/telegram/set-nickname',
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
                 telegram_id: telegramId,
-                first_name: localStorage.getItem('pulse_player_name') || 'User',
                 game_nickname: gameNickname
             })
         })
         .done(function(data) {
             if (data.ok) {
+                console.log('✅ Nickname saved successfully');
                 $('#nickname-modal').removeClass('active').hide();
                 $('#game-nickname-input').val('');
+                
+                // Check admin status after nickname is set
+                if (telegramId && typeof checkAdminStatus === 'function') {
+                    checkAdminStatus(telegramId);
+                }
+                
+                // Reload profile data
+                if (typeof loadProfileData === 'function') {
+                    loadProfileData();
+                }
+                
                 if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
                     window.location.reload();
                 }
