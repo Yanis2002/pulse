@@ -1925,6 +1925,110 @@ def api_get_user_status():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/api/telegram/set-nickname", methods=["POST"])
+def api_set_nickname():
+    """Set game nickname - user chooses it themselves, not from Telegram."""
+    data = request.get_json() or {}
+    telegram_id = data.get("telegram_id", "").strip()
+    game_nickname = data.get("game_nickname", "").strip()
+    
+    print(f"=== Set Game Nickname ===")
+    print(f"telegram_id: {telegram_id}")
+    print(f"game_nickname: {game_nickname}")
+    
+    if not telegram_id:
+        return jsonify({"ok": False, "error": "telegram_id required"}), 400
+    
+    if not game_nickname:
+        return jsonify({"ok": False, "error": "game_nickname required"}), 400
+    
+    # Validate game_nickname: 2-20 chars, letters (lat/cyrillic), numbers, underscore, spaces
+    import re
+    game_nickname = game_nickname.strip()
+    if len(game_nickname) < 2 or len(game_nickname) > 20:
+        return jsonify({"ok": False, "error": "game_nickname должен содержать 2-20 символов"}), 400
+    if not re.match(r'^[a-zA-Zа-яА-ЯёЁ0-9_\s]+$', game_nickname):
+        return jsonify({"ok": False, "error": "game_nickname может содержать только буквы (лат/кирилл), цифры, пробелы и _"}), 400
+    if not game_nickname.replace(' ', '').replace('_', ''):
+        return jsonify({"ok": False, "error": "game_nickname не может состоять только из пробелов и подчеркиваний"}), 400
+    
+    try:
+        with get_db() as db:
+            # Check if user exists
+            user = db.execute("SELECT telegram_id FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if not user:
+                return jsonify({"ok": False, "error": "user not found"}), 404
+            
+            # Check if nickname is already taken
+            existing = db.execute("SELECT telegram_id FROM telegram_users WHERE game_nickname = ? AND telegram_id != ?", (game_nickname, telegram_id)).fetchone()
+            if existing:
+                return jsonify({"ok": False, "error": "Этот никнейм уже занят"}), 400
+            
+            # Update game_nickname (user chooses it themselves)
+            db.execute("""
+                UPDATE telegram_users 
+                SET game_nickname = ?, last_active = CURRENT_TIMESTAMP
+                WHERE telegram_id = ?
+            """, (game_nickname, telegram_id))
+            
+            db.commit()
+            print(f"✅ Game nickname '{game_nickname}' saved to database for user {telegram_id}")
+        
+        return jsonify({"ok": True, "message": "Game nickname set successfully"})
+    except Exception as e:
+        print(f"❌ ERROR setting nickname: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/telegram/set-name", methods=["POST"])
+def api_set_name():
+    """Set display name for user."""
+    data = request.get_json() or {}
+    telegram_id = data.get("telegram_id", "").strip()
+    display_name = data.get("display_name", "").strip()
+    
+    print(f"=== Set Display Name ===")
+    print(f"telegram_id: {telegram_id}")
+    print(f"display_name: {display_name}")
+    
+    if not telegram_id:
+        return jsonify({"ok": False, "error": "telegram_id required"}), 400
+    
+    if not display_name:
+        return jsonify({"ok": False, "error": "display_name required"}), 400
+    
+    # Validate display_name: 1-50 chars
+    if len(display_name) < 1 or len(display_name) > 50:
+        return jsonify({"ok": False, "error": "Имя должно содержать от 1 до 50 символов"}), 400
+    
+    try:
+        with get_db() as db:
+            # Check if user exists
+            user = db.execute("SELECT telegram_id FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if not user:
+                return jsonify({"ok": False, "error": "user not found"}), 404
+            
+            # Update display_name (store in first_name field, or create a new field)
+            # For now, we'll store it in first_name
+            db.execute("""
+                UPDATE telegram_users 
+                SET first_name = ?, last_active = CURRENT_TIMESTAMP
+                WHERE telegram_id = ?
+            """, (display_name, telegram_id))
+            
+            db.commit()
+            print(f"✅ Display name '{display_name}' saved to database for user {telegram_id}")
+        
+        return jsonify({"ok": True, "message": "Display name set successfully"})
+    except Exception as e:
+        print(f"❌ ERROR setting display name: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/api/telegram/users", methods=["GET"])
 def api_get_telegram_users():
     """Get list of registered Telegram users (admin only)."""
