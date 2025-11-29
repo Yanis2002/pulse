@@ -4,10 +4,11 @@ import time
 import json
 import sqlite3
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import contextmanager
 import signal
 import subprocess
+import shutil
 
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
@@ -23,6 +24,9 @@ except ImportError:
 
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "local-admin")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8574583723:AAHGnyANIA7z_7yPftV1q_HBoYWH4XkMVnI")
+
+# Admin telegram_id for migration notifications
+ADMIN_TELEGRAM_ID = os.environ.get("ADMIN_TELEGRAM_ID", "463639949")
 
 # List of game nicknames that have admin rights
 # Admin system based on game_nickname (not Telegram username)
@@ -2623,6 +2627,131 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
+def migrate_database():
+    """Perform database migration/backup to prevent data loss."""
+    try:
+        print(f"🔄 Starting database migration at {datetime.now()}")
+        
+        # Create backup directory if it doesn't exist
+        backup_dir = os.path.join(DB_DIR, "backups")
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir, exist_ok=True)
+        
+        # Create backup filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"pulse_tournaments_backup_{timestamp}.db"
+        backup_path = os.path.join(backup_dir, backup_filename)
+        
+        # Copy database file to backup
+        if os.path.exists(DB_PATH):
+            shutil.copy2(DB_PATH, backup_path)
+            print(f"✅ Database backup created: {backup_path}")
+            
+            # Perform VACUUM to optimize database
+            with get_db() as db:
+                db.execute("VACUUM")
+                db.commit()
+            print(f"✅ Database optimized (VACUUM)")
+            
+            # Clean old backups (keep last 7 days)
+            if os.path.exists(backup_dir):
+                now = time.time()
+                for filename in os.listdir(backup_dir):
+                    filepath = os.path.join(backup_dir, filename)
+                    if os.path.isfile(filepath) and filename.startswith("pulse_tournaments_backup_"):
+                        # Delete backups older than 7 days
+                        if now - os.path.getmtime(filepath) > 7 * 24 * 3600:
+                            os.remove(filepath)
+                            print(f"🗑️ Deleted old backup: {filename}")
+            
+            # Send notification to admin via Telegram bot
+            send_migration_notification(success=True, backup_path=backup_path)
+            
+            return True
+        else:
+            print(f"❌ Database file not found: {DB_PATH}")
+            send_migration_notification(success=False, error="Database file not found")
+            return False
+            
+    except Exception as e:
+        error_msg = str(e)
+        print(f"❌ Error during database migration: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        send_migration_notification(success=False, error=error_msg)
+        return False
+
+
+def send_migration_notification(success=True, backup_path=None, error=None):
+    """Send Telegram notification about migration status to admin."""
+    if not TELEGRAM_BOT_TOKEN or not REQUESTS_AVAILABLE:
+        print("⚠️ Cannot send migration notification: TELEGRAM_BOT_TOKEN or requests not available")
+        return
+    
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        if success:
+            message = (
+                f"✅ Миграция базы данных проведена успешно\n\n"
+                f"📅 Дата и время: {timestamp}\n"
+                f"💾 Резервная копия создана\n"
+                f"🔄 База данных оптимизирована (VACUUM)\n\n"
+                f"Все данные сохранены и защищены от потери."
+            )
+        else:
+            error_text = error or "Неизвестная ошибка"
+            message = (
+                f"❌ Ошибка при миграции базы данных\n\n"
+                f"📅 Дата и время: {timestamp}\n"
+                f"⚠️ Ошибка: {error_text}\n\n"
+                f"Требуется проверка системы."
+            )
+        
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        response = requests.post(url, json={
+            "chat_id": ADMIN_TELEGRAM_ID,
+            "text": message,
+            "parse_mode": "HTML"
+        }, timeout=10)
+        
+        if response.status_code == 200:
+            print(f"✅ Migration notification sent to admin (telegram_id: {ADMIN_TELEGRAM_ID})")
+        else:
+            print(f"⚠️ Failed to send migration notification: {response.status_code} - {response.text}")
+            
+    except Exception as e:
+        print(f"❌ Error sending migration notification: {e}")
+
+
+def schedule_daily_migration():
+    """Schedule daily database migration (every 24 hours)."""
+    def migration_worker():
+        while True:
+            try:
+                # Wait 24 hours (86400 seconds)
+                time.sleep(24 * 60 * 60)
+                migrate_database()
+            except Exception as e:
+                print(f"❌ Error in migration worker: {e}")
+                import traceback
+                traceback.print_exc()
+                # Continue even if there's an error
+                time.sleep(60)  # Wait 1 minute before retrying
+    
+    migration_thread = threading.Thread(target=migration_worker, daemon=True)
+    migration_thread.start()
+    print("✅ Daily database migration scheduler started (every 24 hours)")
+    
+    # Perform initial migration on startup (after 1 minute delay)
+    def initial_migration():
+        time.sleep(60)  # Wait 1 minute after startup
+        migrate_database()
+    
+    initial_thread = threading.Thread(target=initial_migration, daemon=True)
+    initial_thread.start()
+
+
 def kill_existing_port(port=8000):
     # Убиваем все процессы, использующие порт
     try:
@@ -2635,6 +2764,14 @@ def kill_existing_port(port=8000):
             os.kill(pid, signal.SIGKILL)
     except subprocess.CalledProcessError:
         pass  # Никто порт не слушает
+
+# Start daily database migration scheduler
+try:
+    schedule_daily_migration()
+except Exception as e:
+    print(f"Error starting migration scheduler: {e}")
+    import traceback
+    traceback.print_exc()
 
 # Don't kill port on production (Amvera) or when running as module
 if os.environ.get("AMVERA") != "true" and __name__ == "__main__":
