@@ -608,6 +608,115 @@ document.addEventListener('DOMContentLoaded', function(){
         
         console.log('✅ Container found:', container);
         
+        // Check if offer is accepted before showing widget
+        const telegramId = localStorage.getItem('pulse_telegram_id');
+        if (telegramId) {
+            // Check offer status
+            fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ok && data.offer_accepted) {
+                        // Offer accepted, show widget
+                        showTelegramWidget(container);
+                    } else {
+                        // Offer not accepted, show offer prompt
+                        showOfferPrompt(container);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error checking offer status:', error);
+                    // On error, show offer prompt
+                    showOfferPrompt(container);
+                });
+        } else {
+            // No telegram_id, show offer prompt
+            showOfferPrompt(container);
+        }
+    }
+    
+    // Show offer prompt instead of widget
+    function showOfferPrompt(container) {
+        console.log('📋 Showing offer prompt');
+        container.innerHTML = `
+            <div style="text-align: center; padding: 2vh; color: var(--text); font-size: 1.4vh; line-height: 1.8;">
+                <p style="margin-bottom: 2vh; color: var(--text-muted);">
+                    Для входа через Telegram необходимо принять публичную оферту
+                </p>
+                <label style="display: flex; align-items: center; justify-content: center; gap: 1vw; margin-bottom: 2vh; cursor: pointer;">
+                    <input type="checkbox" id="offer-checkbox" style="width: 1.5vh; height: 1.5vh; cursor: pointer;">
+                    <span>Я ознакомился с <a href="https://docs.google.com/document/d/1KgkvSh-Vtx4-EyCcaetlIUYkuATmTqS-/preview" target="_blank" style="color: #ff4b5c; text-decoration: underline;">публичной офертой</a> и принимаю её условия</span>
+                </label>
+                <button id="enable-telegram-btn" disabled style="padding: 1.5vh 3vw; border-radius: 8px; border: 1px solid rgba(255, 75, 92, 0.3); background: rgba(255, 75, 92, 0.1); color: #ff4b5c; font-size: 1.4vh; font-weight: 600; cursor: not-allowed; opacity: 0.5;">
+                    Войти через Telegram
+                </button>
+            </div>
+        `;
+        
+        // Enable button when checkbox is checked
+        const checkbox = document.getElementById('offer-checkbox');
+        const enableBtn = document.getElementById('enable-telegram-btn');
+        
+        if (checkbox && enableBtn) {
+            checkbox.addEventListener('change', function() {
+                if (this.checked) {
+                    enableBtn.disabled = false;
+                    enableBtn.style.cursor = 'pointer';
+                    enableBtn.style.opacity = '1';
+                    enableBtn.style.background = 'rgba(255, 75, 92, 0.2)';
+                    enableBtn.style.borderColor = '#ff4b5c';
+                } else {
+                    enableBtn.disabled = true;
+                    enableBtn.style.cursor = 'not-allowed';
+                    enableBtn.style.opacity = '0.5';
+                    enableBtn.style.background = 'rgba(255, 75, 92, 0.1)';
+                    enableBtn.style.borderColor = 'rgba(255, 75, 92, 0.3)';
+                }
+            });
+            
+            enableBtn.addEventListener('click', function() {
+                if (!checkbox.checked) {
+                    alert('Пожалуйста, примите оферту, поставив галочку');
+                    return;
+                }
+                
+                // Accept offer and show widget
+                const telegramId = localStorage.getItem('pulse_telegram_id');
+                if (telegramId) {
+                    // Accept offer on server
+                    fetch('/api/telegram/accept-offer', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            telegram_id: telegramId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.ok) {
+                            console.log('✅ Offer accepted, showing widget');
+                            showTelegramWidget(container);
+                        } else {
+                            alert('Ошибка при принятии оферты: ' + (data.error || 'неизвестная ошибка'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Error accepting offer:', error);
+                        alert('Ошибка при принятии оферты. Пожалуйста, попробуйте еще раз.');
+                    });
+                } else {
+                    // No telegram_id yet, just show widget (offer will be checked after auth)
+                    showTelegramWidget(container);
+                }
+            });
+        }
+    }
+    
+    // Show Telegram widget
+    function showTelegramWidget(container) {
+        console.log('📱 Showing Telegram widget');
+        
         // Verify onTelegramAuth is defined
         if (typeof window.onTelegramAuth !== 'function') {
             console.error('❌ window.onTelegramAuth is not a function!', typeof window.onTelegramAuth);
@@ -623,8 +732,8 @@ document.addEventListener('DOMContentLoaded', function(){
             existingScript.remove();
         }
         
-        // Clear container
-        container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--text-muted); font-size: 1.3vh;">Загрузка виджета...</div>';
+        // Clear container - don't show loading message
+        container.innerHTML = '';
         
         // Check current domain
         const currentDomain = window.location.hostname;
@@ -827,15 +936,15 @@ document.addEventListener('DOMContentLoaded', function(){
                         nicknameModal.classList.add('active');
                     }
                 } else {
-                    console.log('All set, closing profile modal');
-                    // All set - close profile modal and reload if on dashboard
-                    const profileModal = document.getElementById('profile-modal');
-                    const profileBackdrop = document.getElementById('profile-backdrop');
-                    if (profileModal) profileModal.classList.remove('active');
-                    if (profileBackdrop) profileBackdrop.classList.remove('active');
+                    console.log('All set, updating profile display');
+                    // All set - update profile display but keep modal open
+                    loadProfileData();
                     
+                    // Reload page only if on dashboard to update events
                     if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
-                        window.location.reload();
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
                     }
                 }
             } else {
