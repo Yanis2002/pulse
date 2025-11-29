@@ -634,88 +634,127 @@ document.addEventListener('DOMContentLoaded', function(){
         }
     }
     
-    // Show offer prompt instead of widget
+    // Show offer prompt with widget (disabled until offer accepted)
     function showOfferPrompt(container) {
-        console.log('📋 Showing offer prompt');
-        container.innerHTML = `
-            <div style="text-align: center; padding: 2vh; color: var(--text); font-size: 1.4vh; line-height: 1.8;">
-                <p style="margin-bottom: 2vh; color: var(--text-muted);">
-                    Для входа через Telegram необходимо принять публичную оферту
-                </p>
-                <label style="display: flex; align-items: center; justify-content: center; gap: 1vw; margin-bottom: 2vh; cursor: pointer;">
-                    <input type="checkbox" id="offer-checkbox" style="width: 1.5vh; height: 1.5vh; cursor: pointer;">
-                    <span>Я ознакомился с <a href="https://docs.google.com/document/d/1KgkvSh-Vtx4-EyCcaetlIUYkuATmTqS-/preview" target="_blank" style="color: #ff4b5c; text-decoration: underline;">публичной офертой</a> и принимаю её условия</span>
-                </label>
-                <button id="enable-telegram-btn" disabled style="padding: 1.5vh 3vw; border-radius: 8px; border: 1px solid rgba(255, 75, 92, 0.3); background: rgba(255, 75, 92, 0.1); color: #ff4b5c; font-size: 1.4vh; font-weight: 600; cursor: not-allowed; opacity: 0.5;">
-                    Войти через Telegram
-                </button>
-            </div>
+        console.log('📋 Showing offer prompt with disabled widget');
+        
+        // Show widget first (but it will be disabled)
+        showTelegramWidget(container, true); // true = disabled
+        
+        // Add offer checkbox below widget
+        const offerSection = document.createElement('div');
+        offerSection.id = 'offer-checkbox-section';
+        offerSection.style.cssText = 'text-align: center; padding: 2vh 0; color: var(--text); font-size: 1.4vh; line-height: 1.8;';
+        offerSection.innerHTML = `
+            <p style="margin-bottom: 1.5vh; color: var(--text-muted);">
+                Для входа через Telegram необходимо ознакомиться с публичной офертой
+            </p>
+            <label style="display: flex; align-items: center; justify-content: center; gap: 1vw; cursor: pointer; pointer-events: none; opacity: 0.5;" id="offer-label">
+                <input type="checkbox" id="offer-checkbox" disabled style="width: 1.5vh; height: 1.5vh; cursor: not-allowed;">
+                <span>Я ознакомился с <a href="https://docs.google.com/document/d/1KgkvSh-Vtx4-EyCcaetlIUYkuATmTqS-/preview" target="_blank" id="offer-link" style="color: #ff4b5c; text-decoration: underline; cursor: pointer;">публичной офертой</a> и принимаю её условия</span>
+            </label>
         `;
         
-        // Enable button when checkbox is checked
-        const checkbox = document.getElementById('offer-checkbox');
-        const enableBtn = document.getElementById('enable-telegram-btn');
+        container.appendChild(offerSection);
         
-        if (checkbox && enableBtn) {
-            checkbox.addEventListener('change', function() {
-                if (this.checked) {
-                    enableBtn.disabled = false;
-                    enableBtn.style.cursor = 'pointer';
-                    enableBtn.style.opacity = '1';
-                    enableBtn.style.background = 'rgba(255, 75, 92, 0.2)';
-                    enableBtn.style.borderColor = '#ff4b5c';
-                } else {
-                    enableBtn.disabled = true;
-                    enableBtn.style.cursor = 'not-allowed';
-                    enableBtn.style.opacity = '0.5';
-                    enableBtn.style.background = 'rgba(255, 75, 92, 0.1)';
-                    enableBtn.style.borderColor = 'rgba(255, 75, 92, 0.3)';
+        // Track if user clicked on offer link
+        let offerLinkClicked = false;
+        const offerLink = document.getElementById('offer-link');
+        const offerLabel = document.getElementById('offer-label');
+        const checkbox = document.getElementById('offer-checkbox');
+        
+        if (offerLink) {
+            offerLink.addEventListener('click', function() {
+                console.log('✅ User clicked on offer link');
+                offerLinkClicked = true;
+                
+                // Enable checkbox after link click
+                if (checkbox && offerLabel) {
+                    checkbox.disabled = false;
+                    offerLabel.style.pointerEvents = 'auto';
+                    offerLabel.style.opacity = '1';
+                    checkbox.style.cursor = 'pointer';
                 }
             });
-            
-            enableBtn.addEventListener('click', function() {
-                if (!checkbox.checked) {
-                    alert('Пожалуйста, примите оферту, поставив галочку');
-                    return;
-                }
-                
-                // Accept offer and show widget
-                const telegramId = localStorage.getItem('pulse_telegram_id');
-                if (telegramId) {
+        }
+        
+        // Enable widget when checkbox is checked
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                if (this.checked && offerLinkClicked) {
+                    console.log('✅ Offer checkbox checked, accepting offer and enabling widget');
+                    
                     // Accept offer on server
-                    fetch('/api/telegram/accept-offer', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            telegram_id: telegramId
+                    const telegramId = localStorage.getItem('pulse_telegram_id');
+                    if (telegramId) {
+                        fetch('/api/telegram/accept-offer', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                telegram_id: telegramId
+                            })
                         })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.ok) {
-                            console.log('✅ Offer accepted, showing widget');
-                            showTelegramWidget(container);
-                        } else {
-                            alert('Ошибка при принятии оферты: ' + (data.error || 'неизвестная ошибка'));
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.ok) {
+                                console.log('✅ Offer accepted on server, enabling widget');
+                                // Remove disabled state from widget
+                                enableTelegramWidget(container);
+                                // Hide offer section
+                                if (offerSection) {
+                                    offerSection.style.display = 'none';
+                                }
+                            } else {
+                                console.error('❌ Error accepting offer:', data.error);
+                                this.checked = false;
+                                alert('Ошибка при принятии оферты: ' + (data.error || 'неизвестная ошибка'));
+                            }
+                        })
+                        .catch(error => {
+                            console.error('❌ Error accepting offer:', error);
+                            this.checked = false;
+                            alert('Ошибка при принятии оферты. Пожалуйста, попробуйте еще раз.');
+                        });
+                    } else {
+                        // No telegram_id yet, just enable widget (offer will be checked after auth)
+                        console.log('⚠️ No telegram_id, enabling widget anyway');
+                        enableTelegramWidget(container);
+                        if (offerSection) {
+                            offerSection.style.display = 'none';
                         }
-                    })
-                    .catch(error => {
-                        console.error('❌ Error accepting offer:', error);
-                        alert('Ошибка при принятии оферты. Пожалуйста, попробуйте еще раз.');
-                    });
-                } else {
-                    // No telegram_id yet, just show widget (offer will be checked after auth)
-                    showTelegramWidget(container);
+                    }
+                } else if (this.checked && !offerLinkClicked) {
+                    // Checkbox checked but link not clicked
+                    alert('Пожалуйста, сначала ознакомьтесь с офертой, перейдя по ссылке');
+                    this.checked = false;
                 }
             });
         }
     }
     
+    // Enable Telegram widget (remove disabled state)
+    function enableTelegramWidget(container) {
+        console.log('✅ Enabling Telegram widget');
+        const widgetIframe = container.querySelector('iframe[src*="oauth.telegram.org"]');
+        if (widgetIframe) {
+            // Remove pointer-events: none if it was set
+            widgetIframe.style.pointerEvents = 'auto';
+            widgetIframe.style.opacity = '1';
+            widgetIframe.style.filter = 'none';
+        }
+        
+        // Also check for any overlay that might be blocking
+        const overlays = container.querySelectorAll('[style*="pointer-events: none"]');
+        overlays.forEach(overlay => {
+            overlay.style.pointerEvents = 'auto';
+        });
+    }
+    
     // Show Telegram widget
-    function showTelegramWidget(container) {
-        console.log('📱 Showing Telegram widget');
+    function showTelegramWidget(container, disabled = false) {
+        console.log('📱 Showing Telegram widget', disabled ? '(disabled)' : '(enabled)');
         
         // Verify onTelegramAuth is defined
         if (typeof window.onTelegramAuth !== 'function') {
@@ -874,6 +913,19 @@ document.addEventListener('DOMContentLoaded', function(){
         console.log('📤 Appending widget script to container');
         container.appendChild(script);
         console.log('✅ Widget script appended');
+        
+        // If disabled, add overlay to block interactions
+        if (disabled) {
+            setTimeout(function() {
+                const widgetIframe = container.querySelector('iframe[src*="oauth.telegram.org"]');
+                if (widgetIframe) {
+                    widgetIframe.style.pointerEvents = 'none';
+                    widgetIframe.style.opacity = '0.5';
+                    widgetIframe.style.filter = 'grayscale(100%)';
+                    console.log('🔒 Widget disabled (waiting for offer acceptance)');
+                }
+            }, 2000);
+        }
     }
     
     // Process Telegram authentication - register user and show modals if needed
