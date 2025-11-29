@@ -603,46 +603,58 @@ document.addEventListener('DOMContentLoaded', function(){
         $('#profile-name-save').on('click', function() {
             const telegramId = localStorage.getItem('pulse_telegram_id');
             const profileNameInput = document.getElementById('profile-name-input');
-            const displayName = profileNameInput ? profileNameInput.value.trim() : '';
+            const gameNickname = profileNameInput ? profileNameInput.value.trim() : '';
             
             if (!telegramId) {
                 alert('Telegram ID не найден');
                 return;
             }
             
-            if (!displayName) {
-                alert('Введите имя');
+            if (!gameNickname) {
+                alert('Введите игровой никнейм');
                 return;
             }
             
-            if (displayName.length > 50) {
-                alert('Имя не должно превышать 50 символов');
+            // Validate length
+            if (gameNickname.length < 2 || gameNickname.length > 20) {
+                alert('Никнейм должен содержать от 2 до 20 символов');
+                return;
+            }
+            
+            // Allow letters (lat/cyrillic), numbers, underscore, and spaces
+            if (!/^[a-zA-Zа-яА-ЯёЁ0-9_\s]+$/.test(gameNickname)) {
+                alert('Никнейм может содержать только буквы (лат/кирилл), цифры, пробелы и _');
+                return;
+            }
+            
+            // Don't allow only spaces
+            if (!gameNickname.replace(/\s/g, '').replace(/_/g, '')) {
+                alert('Никнейм не может состоять только из пробелов и подчеркиваний');
                 return;
             }
             
             $.ajax({
-                url: '/api/telegram/set-name',
+                url: '/api/telegram/set-nickname',
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({
                     telegram_id: telegramId,
-                    display_name: displayName
+                    game_nickname: gameNickname
                 })
             })
             .done(function(data) {
                 if (data.ok) {
-                    console.log('✅ Display name saved successfully');
-                    // Update display
-                    const profileNameEl = document.getElementById('profile-name');
-                    const profileNameEdit = document.getElementById('profile-name-edit');
-                    const profileInfoItem = profileNameEl ? profileNameEl.closest('.profile-info-item') : null;
-                    
-                    if (profileNameEl) {
-                        profileNameEl.textContent = displayName;
-                        localStorage.setItem('pulse_player_name', displayName);
+                    console.log('✅ Game nickname saved successfully');
+                    // Reload profile data to get updated nickname
+                    if (typeof loadProfileData === 'function') {
+                        loadProfileData();
                     }
                     
                     // Hide edit, show display
+                    const profileNameEdit = document.getElementById('profile-name-edit');
+                    const profileNameEl = document.getElementById('profile-name');
+                    const profileInfoItem = profileNameEl ? profileNameEl.closest('.profile-info-item') : null;
+                    
                     if (profileNameEdit) profileNameEdit.style.display = 'none';
                     if (profileInfoItem) profileInfoItem.style.display = 'flex';
                 } else {
@@ -650,7 +662,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             })
             .fail(function() {
-                alert('Ошибка при сохранении имени');
+                alert('Ошибка при сохранении никнейма');
             });
         });
         
@@ -1311,16 +1323,16 @@ document.addEventListener('DOMContentLoaded', function(){
         <div class="profile-modal-body">
             <div class="profile-info">
                 <div class="profile-info-item">
-                    <span class="profile-info-label">Имя:</span>
+                    <span class="profile-info-label">Никнейм:</span>
                     <div style="display: flex; align-items: center; gap: 1vw; flex: 1;">
                         <span class="profile-info-value" id="profile-name" style="flex: 1;">Загрузка...</span>
                         <button class="profile-edit-btn" id="profile-edit-name-btn" style="display: none; padding: 0.5vh 1vw; font-size: 1.2vh; background: rgba(255, 46, 59, 0.2); border: 1px solid var(--accent-dim); border-radius: 6px; color: var(--text); cursor: pointer; transition: all 0.2s;">✏️</button>
                     </div>
                 </div>
                 <div class="profile-info-item" id="profile-name-edit" style="display: none;">
-                    <span class="profile-info-label">Имя:</span>
+                    <span class="profile-info-label">Никнейм:</span>
                     <div style="display: flex; align-items: center; gap: 1vw; flex: 1;">
-                        <input type="text" id="profile-name-input" class="event-form-input" style="flex: 1; padding: 1vh 1.5vw; font-size: 1.6vh;" maxlength="50">
+                        <input type="text" id="profile-name-input" class="event-form-input" style="flex: 1; padding: 1vh 1.5vw; font-size: 1.6vh;" maxlength="20" placeholder="Введите игровой никнейм (2-20 символов)" pattern="[a-zA-Zа-яА-ЯёЁ0-9_\s]{2,20}">
                         <button class="event-form-btn event-form-btn-primary" id="profile-name-save" style="padding: 1vh 2vw; font-size: 1.4vh;">Сохранить</button>
                         <button class="event-form-btn event-form-btn-secondary" id="profile-name-cancel" style="padding: 1vh 2vw; font-size: 1.4vh;">Отмена</button>
                     </div>
