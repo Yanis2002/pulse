@@ -2414,23 +2414,6 @@ def api_setup_webhook():
         else:
             error_desc = result.get("description", result.get("error", "Unknown error"))
             return jsonify({"ok": False, "error": error_desc, "result": result}), 400
-            print(f"Telegram API response status: {response.status_code}")
-            print(f"Telegram API response text: {response.text}")
-            
-            result = response.json()
-            print(f"Telegram setWebhook response: {result}")
-            
-            if result.get("ok"):
-                return jsonify({"ok": True, "result": result, "message": "Webhook configured successfully"})
-            else:
-                error_desc = result.get("description", "Unknown error")
-                return jsonify({"ok": False, "error": error_desc, "result": result}), 400
-        except requests.exceptions.RequestException as e:
-            print(f"Request exception: {e}")
-            return jsonify({"ok": False, "error": f"Network error: {str(e)}"}), 500
-        except ValueError as e:
-            print(f"JSON decode error: {e}, response text: {response.text if 'response' in locals() else 'N/A'}")
-            return jsonify({"ok": False, "error": f"Invalid response from Telegram: {str(e)}"}), 500
             
     except Exception as e:
         print(f"Unexpected error in setup-webhook: {e}")
