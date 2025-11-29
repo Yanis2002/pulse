@@ -2368,14 +2368,17 @@ def api_setup_webhook():
             print("requests module not available")
             return jsonify({"ok": False, "error": "requests module not available. Please install it: pip install requests"}), 500
         
-        # Telegram API requires GET request with URL parameter
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook"
-        params = {"url": webhook_url}
+        # Use bot module to setup webhook
+        if not TELEGRAM_BOT_AVAILABLE:
+            return jsonify({"ok": False, "error": "Telegram bot module not available"}), 500
         
-        print(f"Calling Telegram API: {url} with params: {params}")
+        result = setup_webhook(webhook_url)
         
-        try:
-            response = requests.get(url, params=params, timeout=10)
+        if result.get("ok"):
+            return jsonify({"ok": True, "result": result, "message": "Webhook configured successfully"})
+        else:
+            error_desc = result.get("description", result.get("error", "Unknown error"))
+            return jsonify({"ok": False, "error": error_desc, "result": result}), 400
             print(f"Telegram API response status: {response.status_code}")
             print(f"Telegram API response text: {response.text}")
             
