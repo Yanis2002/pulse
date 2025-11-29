@@ -1356,15 +1356,48 @@ def api_register_telegram_user():
     is_bot = data.get("is_bot", False)
     registration_source = data.get("registration_source", "telegram_widget")
     
+    print(f"=== Register Telegram User ===")
+    print(f"telegram_id: {telegram_id}")
+    print(f"first_name: {first_name}")
+    print(f"username: {username}")
+    print(f"registration_source: {registration_source}")
+    
     if not telegram_id or not first_name:
+        print(f"ERROR: Missing required fields - telegram_id: {bool(telegram_id)}, first_name: {bool(first_name)}")
         return jsonify({"ok": False, "error": "telegram_id and first_name required"}), 400
     
     try:
         with get_db() as db:
+            # Ensure telegram_users table exists
+            try:
+                db.execute("SELECT 1 FROM telegram_users LIMIT 1")
+            except sqlite3.OperationalError:
+                print("telegram_users table does not exist, creating it...")
+                db.execute("""
+                    CREATE TABLE IF NOT EXISTS telegram_users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        telegram_id TEXT NOT NULL UNIQUE,
+                        first_name TEXT NOT NULL,
+                        last_name TEXT,
+                        username TEXT,
+                        language_code TEXT,
+                        is_bot BOOLEAN DEFAULT 0,
+                        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        registration_source TEXT DEFAULT 'telegram_widget',
+                        offer_accepted BOOLEAN DEFAULT 0,
+                        offer_accepted_at TIMESTAMP,
+                        game_nickname TEXT
+                    )
+                """)
+                db.commit()
+                print("telegram_users table created successfully")
+            
             # Check if user exists to preserve offer_accepted status
             existing = db.execute("SELECT offer_accepted, game_nickname FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
             
             if existing:
+                print(f"User {telegram_id} already exists, updating...")
                 # Update user but preserve offer_accepted and game_nickname
                 db.execute("""
                     UPDATE telegram_users 
@@ -1374,7 +1407,9 @@ def api_register_telegram_user():
                 """, (first_name, last_name or None, username or None, language_code or None, is_bot, registration_source, telegram_id))
                 offer_accepted = existing.get("offer_accepted", False)
                 game_nickname = existing.get("game_nickname")
+                print(f"User updated successfully. offer_accepted: {offer_accepted}, game_nickname: {game_nickname}")
             else:
+                print(f"New user {telegram_id}, inserting...")
                 # New user
                 db.execute("""
                     INSERT INTO telegram_users 
@@ -1383,6 +1418,10 @@ def api_register_telegram_user():
                 """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, registration_source))
                 offer_accepted = False
                 game_nickname = None
+                print(f"User inserted successfully")
+            
+            db.commit()
+            print(f"✅ User {telegram_id} registered/updated in database")
         
         return jsonify({
             "ok": True, 
@@ -1391,6 +1430,9 @@ def api_register_telegram_user():
             "game_nickname": game_nickname
         })
     except Exception as e:
+        print(f"❌ ERROR registering user: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
 

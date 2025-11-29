@@ -559,7 +559,7 @@ document.addEventListener('DOMContentLoaded', function(){
     
     // Telegram auth callback - simple version as in Telegram docs
     window.onTelegramAuth = function(user) {
-        console.log('Telegram auth callback received:', user);
+        console.log('=== Telegram auth callback received ===', user);
         
         if (!user || !user.id) {
             console.error('Invalid user data received from Telegram');
@@ -572,6 +572,12 @@ document.addEventListener('DOMContentLoaded', function(){
         const telegramUsername = user.username || '';
         const telegramId = user.id.toString();
         
+        console.log('Saving to localStorage:', {
+            playerName,
+            telegramId,
+            telegramUsername
+        });
+        
         localStorage.setItem('pulse_player_name', playerName);
         localStorage.setItem('pulse_telegram_id', telegramId);
         if (telegramUsername) {
@@ -581,12 +587,18 @@ document.addEventListener('DOMContentLoaded', function(){
         // Update profile display immediately
         const profileNameEl = document.getElementById('profile-name');
         const profileTelegramEl = document.getElementById('profile-telegram');
-        if (profileNameEl) profileNameEl.textContent = playerName;
+        if (profileNameEl) {
+            profileNameEl.textContent = playerName;
+            console.log('Updated profile name:', playerName);
+        }
         if (profileTelegramEl) {
-            profileTelegramEl.textContent = telegramUsername ? '@' + telegramUsername : 'ID: ' + telegramId;
+            const displayText = telegramUsername ? '@' + telegramUsername : 'ID: ' + telegramId;
+            profileTelegramEl.textContent = displayText;
+            console.log('Updated profile telegram:', displayText);
         }
         
         // Process authentication (register on server)
+        console.log('Calling processTelegramAuth...');
         processTelegramAuth(user);
     };
     
