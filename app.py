@@ -1936,14 +1936,16 @@ def api_accept_offer():
                 WHERE telegram_id = ?
             """, (telegram_id,))
             
+            rows_updated = cursor.rowcount
             db.commit()
-            print(f"✅ Offer accepted saved to database for user {telegram_id}")
+            print(f"✅ Offer accepted saved to database for user {telegram_id}, rows updated: {rows_updated}")
             
             # Verify the update
-            verify = db.execute("SELECT offer_accepted FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            verify = db.execute("SELECT offer_accepted, offer_accepted_at FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
             if verify:
-                print(f"✅ Verified: offer_accepted = {verify['offer_accepted']} for user {telegram_id}")
-            print(f"✅ Offer accepted and saved to database for user {telegram_id}")
+                print(f"✅ Verified: offer_accepted = {verify['offer_accepted']}, offer_accepted_at = {verify['offer_accepted_at']} for user {telegram_id}")
+            else:
+                print(f"⚠️ WARNING: Could not verify offer_accepted update for user {telegram_id}")
         
         return jsonify({"ok": True, "message": "Offer accepted successfully"})
     except Exception as e:
@@ -2034,14 +2036,22 @@ def api_set_nickname():
                 return jsonify({"ok": False, "error": "Этот никнейм уже занят"}), 400
             
             # Update game_nickname (user chooses it themselves)
-            db.execute("""
+            cursor = db.execute("""
                 UPDATE telegram_users 
                 SET game_nickname = ?, last_active = CURRENT_TIMESTAMP
                 WHERE telegram_id = ?
             """, (game_nickname, telegram_id))
             
+            rows_updated = cursor.rowcount
             db.commit()
-            print(f"✅ Game nickname '{game_nickname}' saved to database for user {telegram_id}")
+            print(f"✅ Game nickname '{game_nickname}' saved to database for user {telegram_id}, rows updated: {rows_updated}")
+            
+            # Verify the update
+            verify = db.execute("SELECT game_nickname FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if verify:
+                print(f"✅ Verified: game_nickname = '{verify['game_nickname']}' for user {telegram_id}")
+            else:
+                print(f"⚠️ WARNING: Could not verify game_nickname update for user {telegram_id}")
         
         return jsonify({"ok": True, "message": "Game nickname set successfully"})
     except Exception as e:
