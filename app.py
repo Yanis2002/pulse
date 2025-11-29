@@ -2410,10 +2410,17 @@ def api_telegram_broadcast():
     data = request.get_json() or {}
     token = data.get("token", "")
     telegram_username = data.get("telegram_username", "")
+    telegram_id = data.get("telegram_id", "")
+    game_nickname = data.get("game_nickname", "")
     message = data.get("message", "").strip()
     
     try:
-        require_admin({"token": token, "telegram_username": telegram_username})
+        require_admin({
+            "token": token, 
+            "telegram_username": telegram_username,
+            "telegram_id": telegram_id,
+            "game_nickname": game_nickname
+        })
     except PermissionError:
         return jsonify({"ok": False, "error": "unauthorized"}), 401
     
