@@ -349,6 +349,7 @@ document.addEventListener('DOMContentLoaded', function(){
         const telegramId = localStorage.getItem('pulse_telegram_id') || '';
         const profileNameEl = document.getElementById('profile-name');
         const profileTelegramEl = document.getElementById('profile-telegram');
+        const profileEditBtn = document.getElementById('profile-edit-name-btn');
         
         // Show loading state
         if (profileNameEl) profileNameEl.textContent = 'Загрузка...';
@@ -375,6 +376,10 @@ document.addEventListener('DOMContentLoaded', function(){
                         if (profileNameEl) {
                             profileNameEl.textContent = fullName || 'Не зарегистрирован';
                         }
+                        // Show edit button if user is registered
+                        if (profileEditBtn && fullName && fullName !== 'Не зарегистрирован') {
+                            profileEditBtn.style.display = 'block';
+                        }
                         if (profileTelegramEl) {
                             if (data.username) {
                                 profileTelegramEl.textContent = '@' + data.username;
@@ -390,6 +395,9 @@ document.addEventListener('DOMContentLoaded', function(){
                         const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
                         
                         if (profileNameEl) profileNameEl.textContent = playerName;
+                        if (profileEditBtn && playerName && playerName !== 'Не зарегистрирован') {
+                            profileEditBtn.style.display = 'block';
+                        }
                         if (profileTelegramEl) {
                             if (telegramUsername) {
                                 profileTelegramEl.textContent = '@' + telegramUsername;
@@ -408,6 +416,9 @@ document.addEventListener('DOMContentLoaded', function(){
                     const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
                     
                     if (profileNameEl) profileNameEl.textContent = playerName;
+                    if (profileEditBtn && playerName && playerName !== 'Не зарегистрирован') {
+                        profileEditBtn.style.display = 'block';
+                    }
                     if (profileTelegramEl) {
                         if (telegramUsername) {
                             profileTelegramEl.textContent = '@' + telegramUsername;
@@ -424,6 +435,9 @@ document.addEventListener('DOMContentLoaded', function(){
             const telegramUsername = localStorage.getItem('pulse_telegram_username') || '';
             
             if (profileNameEl) profileNameEl.textContent = playerName;
+            if (profileEditBtn && playerName && playerName !== 'Не зарегистрирован') {
+                profileEditBtn.style.display = 'block';
+            }
             if (profileTelegramEl) {
                 if (telegramUsername) {
                     profileTelegramEl.textContent = '@' + telegramUsername;
@@ -433,6 +447,88 @@ document.addEventListener('DOMContentLoaded', function(){
             }
         }
     }
+    
+    // Handle name editing
+    $(document).ready(function() {
+        $('#profile-edit-name-btn').on('click', function() {
+            const profileNameEl = document.getElementById('profile-name');
+            const profileNameEdit = document.getElementById('profile-name-edit');
+            const profileNameInput = document.getElementById('profile-name-input');
+            const profileInfoItem = profileNameEl ? profileNameEl.closest('.profile-info-item') : null;
+            
+            if (profileNameEl && profileNameEdit && profileNameInput) {
+                // Hide display, show edit
+                if (profileInfoItem) profileInfoItem.style.display = 'none';
+                profileNameEdit.style.display = 'flex';
+                profileNameInput.value = profileNameEl.textContent || '';
+                profileNameInput.focus();
+            }
+        });
+        
+        $('#profile-name-save').on('click', function() {
+            const telegramId = localStorage.getItem('pulse_telegram_id');
+            const profileNameInput = document.getElementById('profile-name-input');
+            const displayName = profileNameInput ? profileNameInput.value.trim() : '';
+            
+            if (!telegramId) {
+                alert('Telegram ID не найден');
+                return;
+            }
+            
+            if (!displayName) {
+                alert('Введите имя');
+                return;
+            }
+            
+            if (displayName.length > 50) {
+                alert('Имя не должно превышать 50 символов');
+                return;
+            }
+            
+            $.ajax({
+                url: '/api/telegram/set-name',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    telegram_id: telegramId,
+                    display_name: displayName
+                })
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    console.log('✅ Display name saved successfully');
+                    // Update display
+                    const profileNameEl = document.getElementById('profile-name');
+                    const profileNameEdit = document.getElementById('profile-name-edit');
+                    const profileInfoItem = profileNameEl ? profileNameEl.closest('.profile-info-item') : null;
+                    
+                    if (profileNameEl) {
+                        profileNameEl.textContent = displayName;
+                        localStorage.setItem('pulse_player_name', displayName);
+                    }
+                    
+                    // Hide edit, show display
+                    if (profileNameEdit) profileNameEdit.style.display = 'none';
+                    if (profileInfoItem) profileInfoItem.style.display = 'flex';
+                } else {
+                    alert('Ошибка: ' + (data.error || 'неизвестная ошибка'));
+                }
+            })
+            .fail(function() {
+                alert('Ошибка при сохранении имени');
+            });
+        });
+        
+        $('#profile-name-cancel').on('click', function() {
+            const profileNameEdit = document.getElementById('profile-name-edit');
+            const profileNameEl = document.getElementById('profile-name');
+            const profileInfoItem = profileNameEl ? profileNameEl.closest('.profile-info-item') : null;
+            
+            // Hide edit, show display
+            if (profileNameEdit) profileNameEdit.style.display = 'none';
+            if (profileInfoItem) profileInfoItem.style.display = 'flex';
+        });
+    });
     
     // Define onTelegramAuth BEFORE widget initialization to ensure it's available
     // Telegram auth callback - simple version as in Telegram docs
@@ -1049,7 +1145,18 @@ document.addEventListener('DOMContentLoaded', function(){
             <div class="profile-info">
                 <div class="profile-info-item">
                     <span class="profile-info-label">Имя:</span>
-                    <span class="profile-info-value" id="profile-name">Загрузка...</span>
+                    <div style="display: flex; align-items: center; gap: 1vw; flex: 1;">
+                        <span class="profile-info-value" id="profile-name" style="flex: 1;">Загрузка...</span>
+                        <button class="profile-edit-btn" id="profile-edit-name-btn" style="display: none; padding: 0.5vh 1vw; font-size: 1.2vh; background: rgba(255, 46, 59, 0.2); border: 1px solid var(--accent-dim); border-radius: 6px; color: var(--text); cursor: pointer; transition: all 0.2s;">✏️</button>
+                    </div>
+                </div>
+                <div class="profile-info-item" id="profile-name-edit" style="display: none;">
+                    <span class="profile-info-label">Имя:</span>
+                    <div style="display: flex; align-items: center; gap: 1vw; flex: 1;">
+                        <input type="text" id="profile-name-input" class="event-form-input" style="flex: 1; padding: 1vh 1.5vw; font-size: 1.6vh;" maxlength="50">
+                        <button class="event-form-btn event-form-btn-primary" id="profile-name-save" style="padding: 1vh 2vw; font-size: 1.4vh;">Сохранить</button>
+                        <button class="event-form-btn event-form-btn-secondary" id="profile-name-cancel" style="padding: 1vh 2vw; font-size: 1.4vh;">Отмена</button>
+                    </div>
                 </div>
                 <div class="profile-info-item">
                     <span class="profile-info-label">Telegram:</span>
