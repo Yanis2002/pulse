@@ -1355,7 +1355,9 @@ $(document).ready(function() {
         });
         
         // Setup webhook
+        console.log("🔧 Initializing webhook button handler...");
         $("#setup-webhook").on("click", function() {
+            console.log("🔧 Webhook button clicked!");
             const btn = $(this);
             const statusDiv = $("#webhook-status");
             btn.prop('disabled', true).text('Настройка...');
@@ -1390,7 +1392,9 @@ $(document).ready(function() {
         
         // Send broadcast message
         // Database migration handlers
+        console.log("🔧 Initializing migrate-database button handler...");
         $("#migrate-database").on("click", function() {
+            console.log("🔧 Migrate database button clicked!");
             const btn = $(this);
             const result = $("#migration-result");
             const originalText = btn.text();
@@ -1433,7 +1437,9 @@ $(document).ready(function() {
             });
         });
         
+        console.log("🔧 Initializing download-backup button handler...");
         $("#download-backup").on("click", function() {
+            console.log("🔧 Download backup button clicked!");
             const adminData = addAdminData({});
             const params = new URLSearchParams();
             params.append('token', adminData.token || '');
@@ -1443,7 +1449,9 @@ $(document).ready(function() {
             window.location.href = '/api/admin/download-backup?' + params.toString();
         });
         
+        console.log("🔧 Initializing send-broadcast button handler...");
         $("#send-broadcast").on("click", function() {
+            console.log("🔧 Send broadcast button clicked!");
             const message = $("#broadcast-message").val().trim();
             if (!message) {
                 alert('Введите сообщение для рассылки');

@@ -315,6 +315,7 @@ def process_webhook_update(update, get_db_func):
         dict: Result of processing
     """
     if not update:
+        print("⚠️ process_webhook_update: No update data")
         return {"ok": False, "error": "no update data"}
     
     print(f"📨 Processing Telegram update: {json.dumps(update, indent=2)}")
@@ -325,6 +326,8 @@ def process_webhook_update(update, get_db_func):
         user = message.get("from")
         chat_id = message.get("chat", {}).get("id")
         
+        print(f"📝 Message received: user={user}, chat_id={chat_id}")
+        
         if user and chat_id:
             telegram_id = str(user.get("id"))
             first_name = user.get("first_name", "")
@@ -333,13 +336,28 @@ def process_webhook_update(update, get_db_func):
             language_code = user.get("language_code", "")
             is_bot = user.get("is_bot", False)
             
+            message_text = message.get("text", "")
+            print(f"💬 Message text: '{message_text}'")
+            
             # Handle /start command
-            if message.get("text") and message["text"].startswith("/start"):
-                success = handle_start_command(
-                    telegram_id, first_name, last_name, username,
-                    language_code, is_bot, chat_id, get_db_func
-                )
-                return {"ok": success}
+            if message_text and message_text.startswith("/start"):
+                print(f"🚀 /start command detected, calling handle_start_command...")
+                try:
+                    success = handle_start_command(
+                        telegram_id, first_name, last_name, username,
+                        language_code, is_bot, chat_id, get_db_func
+                    )
+                    print(f"✅ handle_start_command returned: {success}")
+                    return {"ok": success}
+                except Exception as e:
+                    print(f"❌ Error in handle_start_command: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return {"ok": False, "error": str(e)}
+            else:
+                print(f"ℹ️ Message is not /start command, ignoring")
+    else:
+        print(f"ℹ️ Update does not contain 'message' field")
     
     return {"ok": True}
 

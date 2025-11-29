@@ -2223,18 +2223,29 @@ def api_export_telegram_users():
 @app.route("/api/telegram/webhook", methods=["POST", "GET"])
 def api_telegram_webhook():
     """Webhook endpoint for Telegram bot updates."""
+    print(f"📥 Webhook called: method={request.method}, TELEGRAM_BOT_AVAILABLE={TELEGRAM_BOT_AVAILABLE}")
+    
     if not TELEGRAM_BOT_AVAILABLE:
+        print("❌ Telegram bot module not available!")
         return jsonify({"ok": False, "error": "Telegram bot module not available"}), 500
     
     try:
         # Telegram sends updates as JSON in POST body
         if request.method == "POST":
             update = request.get_json()
+            print(f"📨 Received update: {json.dumps(update, indent=2) if update else 'None'}")
+            
+            if not update:
+                print("⚠️ No update data received")
+                return jsonify({"ok": False, "error": "no update data"}), 400
+            
             # Process update using bot module
             result = process_webhook_update(update, get_db)
+            print(f"✅ Processed update, result: {result}")
             return jsonify(result)
         else:
             # GET request - return info and webhook status
+            print("📋 GET request - returning webhook info")
             webhook_info = get_webhook_info()
             return jsonify({
                 "ok": True, 
