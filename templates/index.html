@@ -1471,7 +1471,9 @@
 
     function sendAction(action){
         if(!ADMIN_TOKEN)return;
-        socket.emit("action",{action,token:ADMIN_TOKEN});
+        // Get telegram_id for admin check
+        const telegramId = localStorage.getItem('pulse_telegram_id') || '';
+        socket.emit("action",{action:action, token:ADMIN_TOKEN, telegram_id:telegramId});
     }
 
     function renderRating(targetSelector,rules){
