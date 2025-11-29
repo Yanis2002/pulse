@@ -549,8 +549,8 @@ document.addEventListener('DOMContentLoaded', function(){
         container.appendChild(script);
     }
     
-    // Show offer prompt with widget (disabled until offer accepted)
-    function showOfferPrompt(container) {
+    // REMOVED: Old complex offer flow - now using simple flow: widget always active, offer shown after auth
+    // function showOfferPrompt(container) {
         console.log('📋 Showing offer prompt with disabled widget');
         
         // Show widget first (but it will be disabled)
