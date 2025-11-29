@@ -106,11 +106,23 @@ def set_security_headers(response):
 # For local: use current directory or local_db for local version
 LOCAL_MODE = os.environ.get("LOCAL_MODE", "false") == "true"
 
-# Prevent local mode in production (Amvera/Cloud Run)
-if os.environ.get("AMVERA") == "true" or os.environ.get("GAE_ENV") or os.environ.get("K_SERVICE"):
+# Prevent local mode in production (Cloud Run, Amvera, GAE, etc.)
+# Cloud Run sets K_SERVICE, K_REVISION, K_CONFIGURATION
+# Amvera sets AMVERA=true
+# GAE sets GAE_ENV
+is_production = (
+    os.environ.get("AMVERA") == "true" or
+    os.environ.get("GAE_ENV") or
+    os.environ.get("K_SERVICE") or  # Cloud Run
+    os.environ.get("K_REVISION") or  # Cloud Run
+    os.environ.get("K_CONFIGURATION")  # Cloud Run
+)
+
+if is_production:
     # Force production mode on cloud platforms
     LOCAL_MODE = False
-    print("🌐 PRODUCTION PLATFORM DETECTED: Forcing production mode")
+    platform = "Cloud Run" if os.environ.get("K_SERVICE") else ("Amvera" if os.environ.get("AMVERA") else "GAE")
+    print(f"🌐 PRODUCTION PLATFORM DETECTED ({platform}): Forcing production mode")
 
 if LOCAL_MODE:
     # Local version - use separate database directory
@@ -2780,8 +2792,16 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
-# Don't kill port on production (Amvera) or when running as module or in local mode
-if os.environ.get("AMVERA") != "true" and os.environ.get("LOCAL_MODE") != "true" and __name__ == "__main__":
+# Don't kill port on production (Cloud Run, Amvera, GAE) or when running as module or in local mode
+is_production_env = (
+    os.environ.get("AMVERA") == "true" or
+    os.environ.get("GAE_ENV") or
+    os.environ.get("K_SERVICE") or  # Cloud Run
+    os.environ.get("K_REVISION") or  # Cloud Run
+    os.environ.get("K_CONFIGURATION")  # Cloud Run
+)
+
+if not is_production_env and os.environ.get("LOCAL_MODE") != "true" and __name__ == "__main__":
     kill_existing_port(8000)
 
 if __name__ == "__main__":

@@ -1,12 +1,12 @@
 """
-WSGI entry point for Amvera/Cloud Run deployment
+WSGI entry point for Cloud Run/Amvera/GAE deployment
 PRODUCTION VERSION ONLY - uses app.py (not app_local.py)
 """
 import os
 import sys
 
 # Ensure we're in production mode
-os.environ["AMVERA"] = "true"
+# Cloud Run sets K_SERVICE, but we'll also set LOCAL_MODE=false explicitly
 os.environ["LOCAL_MODE"] = "false"
 
 # Add current directory to path
@@ -17,6 +17,17 @@ print("🌐 Starting PRODUCTION WSGI application...")
 print("=" * 60)
 print(f"Python version: {sys.version}")
 print(f"Working directory: {os.getcwd()}")
+
+# Detect platform
+platform = "Unknown"
+if os.environ.get("K_SERVICE"):
+    platform = "Cloud Run"
+elif os.environ.get("AMVERA"):
+    platform = "Amvera"
+elif os.environ.get("GAE_ENV"):
+    platform = "Google App Engine"
+    
+print(f"Platform: {platform}")
 print(f"Environment: PRODUCTION")
 
 try:

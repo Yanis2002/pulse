@@ -11,9 +11,18 @@ import sys
 # Add parent directory to path to import app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Prevent running in production environments
-if os.environ.get("AMVERA") == "true" or os.environ.get("GAE_ENV") or os.environ.get("K_SERVICE"):
-    print("❌ ERROR: app_local.py should not be run in production!")
+# Prevent running in production environments (Cloud Run, Amvera, GAE)
+is_production = (
+    os.environ.get("AMVERA") == "true" or
+    os.environ.get("GAE_ENV") or
+    os.environ.get("K_SERVICE") or  # Cloud Run
+    os.environ.get("K_REVISION") or  # Cloud Run
+    os.environ.get("K_CONFIGURATION")  # Cloud Run
+)
+
+if is_production:
+    platform = "Cloud Run" if os.environ.get("K_SERVICE") else ("Amvera" if os.environ.get("AMVERA") else "GAE")
+    print(f"❌ ERROR: app_local.py should not be run in production ({platform})!")
     print("   Use app.py or wsgi.py for production deployment.")
     sys.exit(1)
 
