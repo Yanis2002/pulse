@@ -1322,6 +1322,9 @@ def api_register_event(event_id):
                 INSERT INTO event_registrations (event_id, player_name, telegram_username, telegram_id)
                 VALUES (?, ?, ?, ?)
             """, (event_id, game_nickname, telegram_username or None, telegram_id or None))
+            
+            # Send confirmation message to user via Telegram bot
+            send_tournament_registration_confirmation(telegram_id, event)
         
         socketio.emit("events_update", {"date": event["date"]})
         return jsonify({"ok": True})
@@ -2277,13 +2280,13 @@ def api_telegram_webhook():
                         
                         welcome_text = (
                             "🎰 Добро пожаловать в PULSE | CLUB!\n\n"
-                            "Вы успешно зарегистрированы в системе.\n\n"
-                            "📋 Для полного доступа к функциям сайта:\n"
+                            "Это бот для записи на турниры по покеру в Санкт-Петербурге.\n\n"
+                            "📋 Для записи на турниры:\n"
                             "1. Перейдите на сайт\n"
                             "2. Войдите через Telegram виджет\n"
                             "3. Примите публичную оферту\n"
                             "4. Укажите игровой никнейм\n\n"
-                            "После этого вы сможете записываться на турниры и события!"
+                            "После этого вы сможете записываться на турниры и получать уведомления о подтверждении регистрации!"
                         )
                         
                         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
