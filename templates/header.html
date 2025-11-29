@@ -1022,7 +1022,11 @@ document.addEventListener('DOMContentLoaded', function(){
                                         console.error('❌ window.onTelegramAuth is not a function!');
                                     }
                                 } else {
-                                    console.warn('⚠️ No valid user data found in message');
+                                    // This is normal - not all messages from iframe contain user data
+                                    // Only log if it's actually a Telegram-related message
+                                    if (event.data && typeof event.data === 'object' && event.data.type) {
+                                        console.log('📨 Message from iframe (not user data):', event.data.type);
+                                    }
                                 }
                             }
                         });

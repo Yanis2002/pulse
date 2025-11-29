@@ -1142,7 +1142,7 @@ def api_get_events():
             """, (start_date, end_date)).fetchall()
             
             # Get registrations separately for each event
-            event_ids = [event["id"] for event in events]
+            event_ids = [event["id"] for event in events] if events else []
             registrations = {}
             if event_ids:
                 placeholders = ",".join("?" * len(event_ids))
@@ -1937,6 +1937,12 @@ def api_accept_offer():
             """, (telegram_id,))
             
             db.commit()
+            print(f"✅ Offer accepted saved to database for user {telegram_id}")
+            
+            # Verify the update
+            verify = db.execute("SELECT offer_accepted FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            if verify:
+                print(f"✅ Verified: offer_accepted = {verify['offer_accepted']} for user {telegram_id}")
             print(f"✅ Offer accepted and saved to database for user {telegram_id}")
         
         return jsonify({"ok": True, "message": "Offer accepted successfully"})
