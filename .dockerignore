@@ -1,0 +1,38 @@
+# Local development files - not for production
+app_local.py
+start_local.sh
+local_db/
+README_LOCAL.md
+
+# Development files
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+flask_server.log
+
+# Backup files
+backups/
+*.db-journal
+

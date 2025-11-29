@@ -105,6 +105,13 @@ def set_security_headers(response):
 # For production: use /data directory (mounted persistent volume)
 # For local: use current directory or local_db for local version
 LOCAL_MODE = os.environ.get("LOCAL_MODE", "false") == "true"
+
+# Prevent local mode in production (Amvera/Cloud Run)
+if os.environ.get("AMVERA") == "true" or os.environ.get("GAE_ENV") or os.environ.get("K_SERVICE"):
+    # Force production mode on cloud platforms
+    LOCAL_MODE = False
+    print("🌐 PRODUCTION PLATFORM DETECTED: Forcing production mode")
+
 if LOCAL_MODE:
     # Local version - use separate database directory
     DB_DIR = os.environ.get("DB_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_db"))
