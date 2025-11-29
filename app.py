@@ -2348,7 +2348,18 @@ def api_telegram_webhook():
                         else:
                             print(f"❌ Error sending message: HTTP {response.status_code} - {response.text}")
                     except Exception as e:
-                        print(f"Error sending welcome message: {e}")
+                        print(f"❌ Error sending welcome message: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        # Try to send a simple error message
+                        try:
+                            error_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+                            requests.post(error_url, json={
+                                "chat_id": chat_id,
+                                "text": "❌ Произошла ошибка при отправке сообщения. Попробуйте позже."
+                            }, timeout=5)
+                        except Exception as err:
+                            print(f"❌ Could not send error message: {err}")
         
         return jsonify({"ok": True})
     except Exception as e:
