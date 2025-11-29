@@ -1052,6 +1052,162 @@ $(document).ready(function() {
     let IS_ADMIN = false;
     const ADMIN_TOKEN = "{{ admin_token }}";
     
+    // Function to initialize admin panel handlers
+    function initAdminHandlers() {
+        console.log("🔧 Initializing admin handlers...");
+        
+        // Setup webhook
+        console.log("🔧 Initializing webhook button handler...");
+        $("#setup-webhook").on("click", function() {
+            console.log("🔧 Webhook button clicked!");
+            const btn = $(this);
+            const statusDiv = $("#webhook-status");
+            btn.prop('disabled', true).text('Настройка...');
+            statusDiv.html('');
+            
+            // Get current site URL
+            const webhookUrl = window.location.origin + '/api/telegram/webhook';
+            
+            $.ajax({
+                url: '/api/telegram/setup-webhook',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(addAdminData({
+                    token: ADMIN_TOKEN,
+                    webhook_url: webhookUrl
+                }))
+            })
+            .done(function(data) {
+                if (data.ok && data.result && data.result.ok) {
+                    statusDiv.html(`<span style="color: #00ff00;">✓ Webhook успешно настроен!</span><br><span style="font-size: 1.1vh; color: var(--text-muted);">URL: ${webhookUrl}</span>`);
+                    btn.text('Webhook настроен').css('background', 'rgba(0, 255, 0, 0.2)').css('border-color', 'rgba(0, 255, 0, 0.5)');
+                } else {
+                    statusDiv.html(`<span style="color: var(--accent-soft);">Ошибка: ${data.result ? data.result.description : (data.error || 'неизвестная ошибка')}</span>`);
+                    btn.prop('disabled', false).text('⚙ Настроить webhook для бота');
+                }
+            })
+            .fail(function() {
+                statusDiv.html('<span style="color: var(--accent-soft);">Ошибка при настройке webhook</span>');
+                btn.prop('disabled', false).text('⚙ Настроить webhook для бота');
+            });
+        });
+        
+        // Database migration handlers
+        console.log("🔧 Initializing migrate-database button handler...");
+        $("#migrate-database").on("click", function() {
+            console.log("🔧 Migrate database button clicked!");
+            const btn = $(this);
+            const result = $("#migration-result");
+            const originalText = btn.text();
+            
+            btn.prop('disabled', true).text('Выполняется...');
+            result.hide();
+            
+            const adminData = addAdminData({});
+            
+            $.ajax({
+                url: '/api/admin/migrate-database',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(adminData)
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    result.css({
+                        'background': 'rgba(0, 238, 255, 0.1)',
+                        'border': '1px solid rgba(0, 238, 255, 0.3)',
+                        'color': '#4ade80'
+                    }).html('✅ Миграция базы данных выполнена успешно!<br>Резервная копия создана и база данных оптимизирована.').show();
+                } else {
+                    result.css({
+                        'background': 'rgba(255, 46, 59, 0.1)',
+                        'border': '1px solid rgba(255, 46, 59, 0.3)',
+                        'color': '#ff4b5c'
+                    }).html('❌ Ошибка: ' + (data.error || 'неизвестная ошибка')).show();
+                }
+            })
+            .fail(function() {
+                result.css({
+                    'background': 'rgba(255, 46, 59, 0.1)',
+                    'border': '1px solid rgba(255, 46, 59, 0.3)',
+                    'color': '#ff4b5c'
+                }).html('❌ Ошибка при выполнении миграции').show();
+            })
+            .always(function() {
+                btn.prop('disabled', false).text(originalText);
+            });
+        });
+        
+        console.log("🔧 Initializing download-backup button handler...");
+        $("#download-backup").on("click", function() {
+            console.log("🔧 Download backup button clicked!");
+            const adminData = addAdminData({});
+            const params = new URLSearchParams();
+            params.append('token', adminData.token || '');
+            if (adminData.telegram_id) params.append('telegram_id', adminData.telegram_id);
+            if (adminData.game_nickname) params.append('game_nickname', adminData.game_nickname);
+            
+            window.location.href = '/api/admin/download-backup?' + params.toString();
+        });
+        
+        console.log("🔧 Initializing send-broadcast button handler...");
+        $("#send-broadcast").on("click", function() {
+            console.log("🔧 Send broadcast button clicked!");
+            const message = $("#broadcast-message").val().trim();
+            if (!message) {
+                alert('Введите сообщение для рассылки');
+                return;
+            }
+            
+            if (!confirm(`Отправить сообщение всем пользователям бота?\n\nСообщение:\n${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`)) {
+                return;
+            }
+            
+            const btn = $(this);
+            btn.prop('disabled', true).text('Отправка...');
+            const resultDiv = $("#broadcast-result");
+            resultDiv.hide();
+            
+            $.ajax({
+                url: '/api/telegram/broadcast',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(addAdminData({
+                    token: ADMIN_TOKEN,
+                    message: message
+                }))
+            })
+            .done(function(data) {
+                if (data.ok) {
+                    resultDiv.css({
+                        'background': 'rgba(0, 238, 255, 0.1)',
+                        'border': '1px solid rgba(0, 238, 255, 0.3)',
+                        'color': '#4ade80'
+                    }).html(`✅ Рассылка выполнена!<br>Отправлено: ${data.sent || 0}, Ошибок: ${data.failed || 0}, Всего: ${data.total || 0}`).show();
+                    $("#broadcast-message").val('');
+                } else {
+                    resultDiv.css({
+                        'background': 'rgba(255, 46, 59, 0.1)',
+                        'border': '1px solid rgba(255, 46, 59, 0.3)',
+                        'color': '#ff4b5c'
+                    }).html('❌ Ошибка: ' + (data.error || 'неизвестная ошибка')).show();
+                }
+            })
+            .fail(function() {
+                resultDiv.css({
+                    'background': 'rgba(255, 46, 59, 0.1)',
+                    'border': '1px solid rgba(255, 46, 59, 0.3)',
+                    'color': '#ff4b5c'
+                }).html('❌ Ошибка при отправке рассылки').show();
+            })
+            .always(function() {
+                btn.prop('disabled', false).text('Отправить рассылку');
+            });
+        });
+        
+        console.log("✅ Admin handlers initialized!");
+    }
+    
     // Update admin status based on Telegram ID
     (async function() {
         const telegramId = localStorage.getItem('pulse_telegram_id') || '';
@@ -1061,6 +1217,7 @@ $(document).ready(function() {
                 const data = await response.json();
                 if (data.ok && data.is_admin) {
                     IS_ADMIN = true;
+                    console.log("✅ User is admin, initializing admin handlers...");
                     // Show admin panel if user is admin
                     const adminPanel = document.getElementById('admin-panel');
                     const toggleAdminBtn = document.getElementById('toggle-admin');
@@ -1070,10 +1227,16 @@ $(document).ready(function() {
                     if (toggleAdminBtn) {
                         toggleAdminBtn.style.display = 'block';
                     }
+                    // Initialize admin handlers after confirming admin status
+                    initAdminHandlers();
+                } else {
+                    console.log("ℹ️ User is not admin");
                 }
             } catch (e) {
                 console.error('Error checking admin status:', e);
             }
+        } else {
+            console.log("ℹ️ No telegram_id found in localStorage");
         }
     })();
     
