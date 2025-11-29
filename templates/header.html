@@ -1095,16 +1095,21 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     }
     
-    // Check admin status and update UI
-    function checkAdminStatus(telegramUsername) {
-        console.log('🔍 checkAdminStatus called with:', telegramUsername);
+    // Check admin status and update UI (based on game_nickname)
+    function checkAdminStatus(gameNickname, telegramId) {
+        console.log('🔍 checkAdminStatus called with:', {gameNickname, telegramId});
         
-        if (!telegramUsername) {
-            console.warn('⚠️ No telegram username provided to checkAdminStatus');
+        // Build URL with game_nickname or telegram_id
+        let url = '/api/telegram/check-admin?';
+        if (gameNickname) {
+            url += 'game_nickname=' + encodeURIComponent(gameNickname);
+        } else if (telegramId) {
+            url += 'telegram_id=' + encodeURIComponent(telegramId);
+        } else {
+            console.warn('⚠️ No game_nickname or telegram_id provided to checkAdminStatus');
             return;
         }
         
-        const url = '/api/telegram/check-admin?username=' + encodeURIComponent(telegramUsername);
         console.log('📡 Fetching:', url);
         
         fetch(url)
