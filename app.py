@@ -1623,31 +1623,76 @@ def api_telegram_webhook():
                 language_code = user.get("language_code", "")
                 is_bot = user.get("is_bot", False)
                 
-                print(f"Saving Telegram user: {telegram_id}, {first_name}, {username}")
+                print(f"📥 Saving Telegram user: {telegram_id}, {first_name}, {username}")
                 
-                # Save user to database
+                # Save user to database (preserve offer_accepted and game_nickname if exists)
                 try:
                     with get_db() as db:
-                        db.execute("""
-                            INSERT OR REPLACE INTO telegram_users 
-                            (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                        """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot"))
+                        # Check if user exists
+                        existing = db.execute(
+                            "SELECT offer_accepted, game_nickname FROM telegram_users WHERE telegram_id = ?",
+                            (telegram_id,)
+                        ).fetchone()
+                        
+                        if existing:
+                            print(f"✅ User {telegram_id} already exists, updating...")
+                            # Update user but preserve offer_accepted and game_nickname
+                            db.execute("""
+                                UPDATE telegram_users 
+                                SET first_name = ?, last_name = ?, username = ?, language_code = ?, 
+                                    is_bot = ?, registration_source = ?, last_active = CURRENT_TIMESTAMP
+                                WHERE telegram_id = ?
+                            """, (first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot", telegram_id))
+                        else:
+                            print(f"✅ New user {telegram_id}, inserting...")
+                            # New user
+                            db.execute("""
+                                INSERT INTO telegram_users 
+                                (telegram_id, first_name, last_name, username, language_code, is_bot, registration_source, last_active, offer_accepted)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 0)
+                            """, (telegram_id, first_name, last_name or None, username or None, language_code or None, is_bot, "telegram_bot"))
+                        
                         db.commit()
-                    print(f"User {telegram_id} saved successfully")
+                        print(f"✅ User {telegram_id} saved successfully to database")
                 except Exception as e:
-                    print(f"Error saving Telegram user: {e}")
+                    print(f"❌ Error saving Telegram user: {e}")
                     import traceback
                     traceback.print_exc()
                 
                 # Handle /start command
                 if message.get("text") and message["text"].startswith("/start"):
                     try:
-                        welcome_text = "🎰 Добро пожаловать в PULSE | CLUB!\n\nВы будете получать уведомления о предстоящих турнирах и событиях."
+                        # Get base URL from environment or use default
+                        base_url = os.environ.get("BASE_URL", "https://pulse-390031593512.europe-north1.run.app")
+                        
+                        welcome_text = (
+                            "🎰 Добро пожаловать в PULSE | CLUB!\n\n"
+                            "Вы успешно зарегистрированы в системе.\n\n"
+                            "📋 Для полного доступа к функциям сайта:\n"
+                            "1. Перейдите на сайт\n"
+                            "2. Войдите через Telegram виджет\n"
+                            "3. Примите публичную оферту\n"
+                            "4. Укажите игровой никнейм\n\n"
+                            "После этого вы сможете записываться на турниры и события!"
+                        )
+                        
                         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+                        
+                        # Create inline keyboard with button to open website
+                        keyboard = {
+                            "inline_keyboard": [[
+                                {
+                                    "text": "🌐 Открыть сайт PULSE | CLUB",
+                                    "url": base_url
+                                }
+                            ]]
+                        }
+                        
                         response = requests.post(url, json={
                             "chat_id": chat_id,
-                            "text": welcome_text
+                            "text": welcome_text,
+                            "reply_markup": keyboard,
+                            "parse_mode": "HTML"
                         }, timeout=5)
                         print(f"Welcome message sent: {response.json()}")
                     except Exception as e:
