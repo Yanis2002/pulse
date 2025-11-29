@@ -483,46 +483,70 @@ document.addEventListener('DOMContentLoaded', function(){
         processTelegramAuth(user);
     };
     
-    // Telegram Login Widget
+    // Telegram Login Widget - simple version (always active, offer shown after auth)
     function initTelegramWidget() {
-        console.log('🔧 initTelegramWidget called');
-        
         const container = document.getElementById('telegram-widget-container');
-        if (!container) {
-            console.error('❌ telegram-widget-container not found!');
+        if (!container) return;
+        
+        // Remove existing widget if any
+        const existingScript = document.querySelector('script[data-telegram-login]');
+        if (existingScript) {
+            existingScript.remove();
+        }
+        
+        // Clear container
+        container.innerHTML = '';
+        
+        // Check current domain
+        const currentDomain = window.location.hostname;
+        const isLocalhost = currentDomain === 'localhost' || currentDomain === '127.0.0.1' || currentDomain.startsWith('192.168.');
+        
+        // Show domain registration notice if needed
+        if (isLocalhost) {
+            container.innerHTML = '<div style="text-align: center; padding: 2vh; color: var(--text-muted); font-size: 1.3vh; line-height: 1.6;">⚠️ Виджет Telegram работает только на зарегистрированном домене.<br><br>Для локальной разработки используйте:<br><code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">localhost</code><br><br>Или зарегистрируйте домен через @BotFather:<br><code style="background: rgba(0,0,0,0.3); padding: 0.5vh 1vw; border-radius: 4px;">/setdomain</code></div>';
             return;
         }
         
-        console.log('✅ Container found:', container);
+        // Create widget script
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://telegram.org/js/telegram-widget.js?22';
+        script.setAttribute('data-telegram-login', 'Pulse_Club_bot');
+        script.setAttribute('data-size', 'large');
+        script.setAttribute('data-radius', '20');
+        script.setAttribute('data-onauth', 'onTelegramAuth');
+        script.setAttribute('data-request-access', 'write');
         
-        // Check if offer is accepted before showing widget
-        const telegramId = localStorage.getItem('pulse_telegram_id');
-        if (telegramId) {
-            // Check offer status from server
-            fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log('📋 User status from server:', data);
-                    if (data.ok && data.offer_accepted) {
-                        // Offer already accepted, show widget enabled
-                        console.log('✅ Offer already accepted, showing enabled widget');
-                        showTelegramWidget(container, false); // false = enabled
-                    } else {
-                        // Offer not accepted, show disabled widget with offer checkbox
-                        console.log('📋 Offer not accepted, showing disabled widget with offer checkbox');
-                        showOfferPrompt(container);
-                    }
-                })
-                .catch(error => {
-                    console.error('❌ Error checking offer status:', error);
-                    // On error, show offer prompt (assume not accepted)
-                    showOfferPrompt(container);
-                });
-        } else {
-            // No telegram_id, show offer prompt
-            console.log('📋 No telegram_id, showing offer prompt');
-            showOfferPrompt(container);
-        }
+        // Handle widget script load
+        script.onload = function() {
+            setTimeout(function() {
+                const widgetButton = container.querySelector('iframe');
+                if (widgetButton && widgetButton.tagName === 'IFRAME') {
+                    // Listen for messages from iframe
+                    window.addEventListener('message', function(event) {
+                        if (event.origin === 'https://oauth.telegram.org' && event.data) {
+                            let parsedData = event.data;
+                            if (typeof event.data === 'string') {
+                                try {
+                                    parsedData = JSON.parse(event.data);
+                                } catch (e) {
+                                    return;
+                                }
+                            }
+                            
+                            if (parsedData && parsedData.auth_data) {
+                                const userData = parsedData.auth_data;
+                                if (userData && userData.id && typeof window.onTelegramAuth === 'function') {
+                                    window.onTelegramAuth(userData);
+                                }
+                            }
+                        }
+                    });
+                }
+            }, 1000);
+        };
+        
+        container.appendChild(script);
     }
     
     // Show offer prompt with widget (disabled until offer accepted)
