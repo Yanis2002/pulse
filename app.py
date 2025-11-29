@@ -480,6 +480,145 @@ def rating():
 def contacts():
     return render_template("contacts.html")
 
+@app.route("/debug/admin")
+def debug_admin():
+    """Debug page to check admin status."""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Admin Debug</title>
+        <meta charset="UTF-8">
+        <style>
+            body {{
+                font-family: monospace;
+                background: #0a0a0a;
+                color: #fff;
+                padding: 20px;
+            }}
+            .section {{
+                margin: 20px 0;
+                padding: 15px;
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 5px;
+            }}
+            .success {{ color: #0f0; }}
+            .error {{ color: #f00; }}
+            .info {{ color: #0ff; }}
+            button {{
+                background: #d32f2f;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                cursor: pointer;
+                border-radius: 5px;
+                margin: 5px;
+            }}
+            button:hover {{ background: #b71c1c; }}
+            #log {{
+                background: #000;
+                padding: 10px;
+                border-radius: 5px;
+                max-height: 400px;
+                overflow-y: auto;
+                font-size: 12px;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>🔍 Admin Debug Page</h1>
+        
+        <div class="section">
+            <h2>📋 Current Status</h2>
+            <div id="status">Loading...</div>
+        </div>
+        
+        <div class="section">
+            <h2>🔧 Actions</h2>
+            <button onclick="checkAdmin()">Check Admin Status</button>
+            <button onclick="clearLog()">Clear Log</button>
+            <button onclick="showLocalStorage()">Show LocalStorage</button>
+        </div>
+        
+        <div class="section">
+            <h2>📝 Log</h2>
+            <div id="log"></div>
+        </div>
+        
+        <script>
+            function log(message, type = 'info') {{
+                const logDiv = document.getElementById('log');
+                const time = new Date().toLocaleTimeString();
+                const color = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+                logDiv.innerHTML += `<div class="${{color}}">[${{time}}] ${{message}}</div>`;
+                logDiv.scrollTop = logDiv.scrollHeight;
+            }}
+            
+            function clearLog() {{
+                document.getElementById('log').innerHTML = '';
+            }}
+            
+            function showLocalStorage() {{
+                const telegramUsername = localStorage.getItem('pulse_telegram_username');
+                const telegramId = localStorage.getItem('pulse_telegram_id');
+                const playerName = localStorage.getItem('pulse_player_name');
+                
+                log('=== LocalStorage ===', 'info');
+                log(`telegram_username: ${{telegramUsername || 'NOT SET'}}`, telegramUsername ? 'success' : 'error');
+                log(`telegram_id: ${{telegramId || 'NOT SET'}}`, telegramId ? 'success' : 'error');
+                log(`player_name: ${{playerName || 'NOT SET'}}`, playerName ? 'success' : 'error');
+            }}
+            
+            async function checkAdmin() {{
+                const telegramUsername = localStorage.getItem('pulse_telegram_username');
+                
+                if (!telegramUsername) {{
+                    log('❌ No telegram_username in localStorage!', 'error');
+                    log('💡 You need to login through Telegram widget first', 'info');
+                    updateStatus('❌ Not logged in', 'error');
+                    return;
+                }}
+                
+                log(`🔍 Checking admin status for: ${{telegramUsername}}`, 'info');
+                
+                try {{
+                    const response = await fetch('/api/telegram/check-admin?username=' + encodeURIComponent(telegramUsername));
+                    const data = await response.json();
+                    
+                    log(`📡 Response: ${{JSON.stringify(data, null, 2)}}`, 'info');
+                    
+                    if (data.ok && data.is_admin) {{
+                        log('✅ ADMIN ACCESS GRANTED!', 'success');
+                        updateStatus('✅ You are ADMIN', 'success');
+                    }} else {{
+                        log('❌ NOT ADMIN', 'error');
+                        log(`Admin list: ${{JSON.stringify(data.admin_list || [])}}`, 'info');
+                        updateStatus('❌ You are NOT admin', 'error');
+                    }}
+                }} catch (error) {{
+                    log(`❌ Error: ${{error.message}}`, 'error');
+                    updateStatus('❌ Error checking status', 'error');
+                }}
+            }}
+            
+            function updateStatus(message, type) {{
+                const statusDiv = document.getElementById('status');
+                statusDiv.className = type;
+                statusDiv.textContent = message;
+            }}
+            
+            // Auto-check on load
+            window.onload = function() {{
+                log('🔍 Debug page loaded', 'info');
+                showLocalStorage();
+                checkAdmin();
+            }};
+        </script>
+    </body>
+    </html>
+    """
+
 @app.errorhandler(404)
 def not_found(error):
     """Handle 404 errors by redirecting to main page."""
