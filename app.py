@@ -2647,9 +2647,11 @@ update_players_from_list(default_players)
 # Initialize database on startup (with error handling)
 try:
     init_db()
-    print("Database initialized successfully")
+    print("✅ Database initialized successfully")
+    print(f"📁 Database path: {DB_PATH}")
+    print(f"🔧 Mode: {'LOCAL' if LOCAL_MODE else 'PRODUCTION'}")
 except Exception as e:
-    print(f"Error initializing database: {e}")
+    print(f"❌ Error initializing database: {e}")
     import traceback
     traceback.print_exc()
 
