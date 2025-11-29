@@ -15,12 +15,13 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Expose port
-EXPOSE 8000
+# Expose port (Cloud Run uses 8080 by default, but we'll use PORT env var)
+EXPOSE 8080
 
-# Set environment variable
-ENV PORT=8000
+# Set default port (will be overridden by Cloud Run)
+ENV PORT=8080
 
 # Run gunicorn with eventlet (with timeout and logging)
-CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:8000", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "debug", "wsgi:application"]
+# Use PORT environment variable for flexibility
+CMD gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-8080} --timeout 120 --access-logfile - --error-logfile - --log-level debug wsgi:application
 
