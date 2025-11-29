@@ -332,9 +332,24 @@ document.addEventListener('DOMContentLoaded', function(){
     (function() {
         const telegramUsername = localStorage.getItem('pulse_telegram_username');
         if (telegramUsername) {
-            // Wait a bit for DOM to be ready
+            // Wait a bit for DOM to be ready, then check admin status
             setTimeout(function() {
-                checkAdminStatus(telegramUsername);
+                const telegramId = localStorage.getItem('pulse_telegram_id');
+                if (telegramId) {
+                    // Try to get game_nickname from server
+                    fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.ok && data.game_nickname) {
+                                checkAdminStatus(data.game_nickname);
+                            } else {
+                                checkAdminStatus(null, telegramId);
+                            }
+                        })
+                        .catch(() => {
+                            checkAdminStatus(null, telegramId);
+                        });
+                }
             }, 500);
         }
     })();
@@ -365,8 +380,12 @@ document.addEventListener('DOMContentLoaded', function(){
                         localStorage.setItem('pulse_player_name', fullName || 'Не зарегистрирован');
                         if (data.username) {
                             localStorage.setItem('pulse_telegram_username', data.username);
-                            // Check admin status after loading username
-                            checkAdminStatus(data.username);
+                        }
+                        // Check admin status after loading (use game_nickname or telegram_id)
+                        if (data.game_nickname) {
+                            checkAdminStatus(data.game_nickname);
+                        } else if (telegramId) {
+                            checkAdminStatus(null, telegramId);
                         }
                         
                         // Update display
@@ -905,10 +924,16 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Update profile display (reload from server to get latest data)
                 loadProfileData();
                 
-                // Check admin status after registration
-                if (telegramUsername) {
-                    console.log('Checking admin status for:', telegramUsername);
-                    checkAdminStatus(telegramUsername);
+                // Check admin status after registration (use game_nickname or telegram_id)
+                if (data.game_nickname) {
+                    console.log('Checking admin status for game_nickname:', data.game_nickname);
+                    checkAdminStatus(data.game_nickname);
+                } else {
+                    const telegramId = localStorage.getItem('pulse_telegram_id');
+                    if (telegramId) {
+                        console.log('Checking admin status for telegram_id:', telegramId);
+                        checkAdminStatus(null, telegramId);
+                    }
                 }
                 
                 // After registration, check if offer needs to be accepted (only once)
@@ -1124,7 +1149,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 console.log('📡 Response data:', data);
                 
                 if (data.ok && data.is_admin) {
-                    console.log('✅ Admin access granted for:', telegramUsername);
+                    console.log('✅ Admin access granted for:', gameNickname || telegramId);
                     
                     // Update IS_ADMIN on all pages
                     if (typeof IS_ADMIN !== 'undefined') {
@@ -1178,10 +1203,22 @@ document.addEventListener('DOMContentLoaded', function(){
             profileModal.classList.add('active');
             profileBackdrop.classList.add('active');
             loadProfileData();
-            // Check admin status when opening profile
-            const telegramUsername = localStorage.getItem('pulse_telegram_username');
-            if (telegramUsername) {
-                checkAdminStatus(telegramUsername);
+            // Check admin status when opening profile (use game_nickname or telegram_id)
+            const telegramId = localStorage.getItem('pulse_telegram_id');
+            if (telegramId) {
+                // Try to get game_nickname from server
+                fetch(`/api/telegram/user-status?telegram_id=${encodeURIComponent(telegramId)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.ok && data.game_nickname) {
+                            checkAdminStatus(data.game_nickname);
+                        } else {
+                            checkAdminStatus(null, telegramId);
+                        }
+                    })
+                    .catch(() => {
+                        checkAdminStatus(null, telegramId);
+                    });
             }
             // Initialize Telegram widget when modal opens (with delay to ensure DOM is ready)
             console.log('👤 Profile modal opened, initializing Telegram widget...');
