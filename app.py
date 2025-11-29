@@ -2350,28 +2350,28 @@ def api_setup_webhook():
         print(f"Setup webhook request: token={bool(token)}, webhook_url={webhook_url}")
         
         telegram_username = data.get("telegram_username", "")
+        telegram_id = data.get("telegram_id", "")
+        game_nickname = data.get("game_nickname", "")
+        
         try:
-            require_admin({"token": token, "telegram_username": telegram_username})
+            require_admin({
+                "token": token, 
+                "telegram_username": telegram_username,
+                "telegram_id": telegram_id,
+                "game_nickname": game_nickname
+            })
         except PermissionError:
             print(f"Unauthorized: token mismatch or not admin")
             return jsonify({"ok": False, "error": "unauthorized"}), 401
         
-        if not TELEGRAM_BOT_TOKEN:
-            print("TELEGRAM_BOT_TOKEN not configured")
-            return jsonify({"ok": False, "error": "bot token not configured"}), 500
+        if not TELEGRAM_BOT_AVAILABLE:
+            return jsonify({"ok": False, "error": "Telegram bot module not available"}), 500
         
         if not webhook_url:
             print("webhook_url is empty")
             return jsonify({"ok": False, "error": "webhook_url required"}), 400
         
-        if not REQUESTS_AVAILABLE:
-            print("requests module not available")
-            return jsonify({"ok": False, "error": "requests module not available. Please install it: pip install requests"}), 500
-        
         # Use bot module to setup webhook
-        if not TELEGRAM_BOT_AVAILABLE:
-            return jsonify({"ok": False, "error": "Telegram bot module not available"}), 500
-        
         result = setup_webhook(webhook_url)
         
         if result.get("ok"):
