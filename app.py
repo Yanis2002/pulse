@@ -1297,17 +1297,8 @@ def api_register_event(event_id):
     
     try:
         with get_db() as db:
-            # Check if user has accepted the offer
-            user = None
-            if telegram_id:
-                user = db.execute("SELECT offer_accepted FROM telegram_users WHERE telegram_id = ?", (telegram_id,)).fetchone()
-            elif telegram_username:
-                user = db.execute("SELECT offer_accepted FROM telegram_users WHERE username = ?", (telegram_username,)).fetchone()
-            
-            if not user or not user.get("offer_accepted"):
-                return jsonify({"ok": False, "error": "offer_not_accepted", "message": "Необходимо принять публичную оферту для записи на события"}), 403
-            
-            # Check if event exists
+            # All 3 factors (telegram_id, offer_accepted, game_nickname) already checked above
+            # Just verify event exists
             event = db.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
             if not event:
                 return jsonify({"ok": False, "error": "event not found"}), 404
