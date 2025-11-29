@@ -2776,6 +2776,83 @@ def migrate_database():
         return False
 
 
+def send_tournament_registration_confirmation(telegram_id, event):
+    """Send tournament registration confirmation message to user via Telegram bot."""
+    if not TELEGRAM_BOT_TOKEN or not REQUESTS_AVAILABLE:
+        print("⚠️ Cannot send registration confirmation: TELEGRAM_BOT_TOKEN or requests not available")
+        return
+    
+    try:
+        # Format date from YYYY-MM-DD to DD month name
+        event_date = event.get("date", "")
+        event_time = event.get("time", "")
+        event_type = event.get("event_type", "")
+        description = event.get("description", "")
+        
+        # Parse date
+        date_obj = None
+        try:
+            date_obj = datetime.strptime(event_date, "%Y-%m-%d")
+            day = date_obj.day
+            month_names = {
+                1: "января", 2: "февраля", 3: "марта", 4: "апреля",
+                5: "мая", 6: "июня", 7: "июля", 8: "августа",
+                9: "сентября", 10: "октября", 11: "ноября", 12: "декабря"
+            }
+            month_name = month_names.get(date_obj.month, "")
+            formatted_date = f"{day} {month_name}"
+        except:
+            formatted_date = event_date
+        
+        # Format time
+        try:
+            time_obj = datetime.strptime(event_time, "%H:%M")
+            formatted_time = time_obj.strftime("%H:%M")
+        except:
+            formatted_time = event_time
+        
+        # Format tournament name
+        if date_obj and event_type:
+            tournament_name = f"{event_type} — {date_obj.strftime('%d.%m')} {formatted_time}"
+        else:
+            tournament_name = description or "Турнир"
+        
+        # Build confirmation message
+        message = (
+            "✅Ваша регистрация на турнир подтверждена! ✅\n\n"
+            f"▪️ 🗓 Дата: {formatted_date}\n\n"
+            f"▪️ ⏰ Начало: {formatted_time}\n\n"
+            f"▪️ 🏆 Турнир: {tournament_name}\n\n"
+            "📍 Адрес: СПБ, улица Восстания, 15С\n\n"
+            "🧭 Как пройти: https://yandex.ru/maps/-/CLW~qQKs\n\n"
+            "⏰ Поздняя регистрация и ре-энтри открыты до 20:30:00\n\n"
+            "🔺 (это время, до которого можно присоединиться к турниру)\n\n"
+            "⚠️Правила ответственного бронирования:\n\n"
+            "🔺 Предупредите об отмене минимум за 2 часа для того чтобы слоты не пропадали — иначе в следующий раз запись по предоплате, проявляйте уважение к другим участникам клуба.\n\n"
+            "❗️Важно: Играем не на деньги. Призы не предусмотрены. 18+\n\n"
+            "🔺 Оплата производится за аренду инвентаря картой или QR-кодом\n\n"
+            "🔺 Оплата наличными невозможна\n\n"
+            "Остались вопросы? Поддержка 24/7"
+        )
+        
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        response = requests.post(url, json={
+            "chat_id": telegram_id,
+            "text": message,
+            "parse_mode": "HTML"
+        }, timeout=10)
+        
+        if response.status_code == 200:
+            print(f"✅ Registration confirmation sent to user (telegram_id: {telegram_id})")
+        else:
+            print(f"⚠️ Failed to send registration confirmation: {response.status_code} - {response.text}")
+            
+    except Exception as e:
+        print(f"❌ Error sending registration confirmation: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def send_migration_notification(success=True, backup_path=None, error=None):
     """Send Telegram notification about migration status to admin."""
     if not TELEGRAM_BOT_TOKEN or not REQUESTS_AVAILABLE:
